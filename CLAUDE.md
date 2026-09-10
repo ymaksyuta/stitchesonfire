@@ -51,7 +51,7 @@ src/
 4. PWA shell (manifest icons, offline test) ✅ icons generated from
    `src-icon/icon.svg` (kept in repo so they can be regenerated/redesigned;
    not part of the build output)
-5. i18n pass — en, uk, ru seeded via `LanguageSwitcher`; still needs more
+5. i18n pass — en, ru seeded via `LanguageSwitcher`; still needs more
    languages + RTL check
 6. Export (PNG/PDF) — not started
 7. Polish (undo/redo, accessibility, more stitch symbols, zoom/pan) — not
