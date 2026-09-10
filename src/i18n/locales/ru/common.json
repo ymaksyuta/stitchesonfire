@@ -1,0 +1,16 @@
+{
+  "app.title": "Stitches on Fire",
+  "editor.newPattern": "Новая схема",
+  "editor.save": "Сохранить",
+  "editor.export": "Экспорт",
+  "editor.saved": "Сохранено",
+  "editor.load": "Загрузить",
+  "editor.delete": "Удалить",
+  "editor.myPatterns": "Мои схемы",
+  "editor.noPatterns": "Пока нет сохранённых схем",
+  "editor.untitled": "Без названия",
+  "stitch.chain": "Воздушная петля",
+  "stitch.single": "Столбик без накида",
+  "stitch.double": "Столбик с накидом",
+  "stitch.slipStitch": "Соединительный столбик"
+}

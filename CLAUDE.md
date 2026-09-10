@@ -46,9 +46,23 @@ src/
 ## Roadmap (see repo README/issues for current status)
 1. Scaffold ✅
 2. Core editor MVP (grid, stitch placement, touch) ✅ baseline, needs zoom/pan
-3. Pattern persistence (save/load/list/delete via IndexedDB) — in progress
-4. PWA shell (manifest icons, offline test) — needs real icon assets
-5. i18n pass — en + uk seeded, needs more languages + RTL check
-6. Export (PNG/PDF)
-7. Polish (undo/redo, accessibility, more stitch symbols)
+3. Pattern persistence (save/load/list/delete via IndexedDB) ✅
+   `PatternManager` in `src/features/editor/`
+4. PWA shell (manifest icons, offline test) ✅ icons generated from
+   `src-icon/icon.svg` (kept in repo so they can be regenerated/redesigned;
+   not part of the build output)
+5. i18n pass — en, uk, ru seeded via `LanguageSwitcher`; still needs more
+   languages + RTL check
+6. Export (PNG/PDF) — not started
+7. Polish (undo/redo, accessibility, more stitch symbols, zoom/pan) — not
+   started
 8. Beta + feedback loop
+
+## Icon regeneration
+Source is `src-icon/icon.svg`. Regenerate PNGs with:
+```
+rsvg-convert -w 192 -h 192 src-icon/icon.svg -o public/icon-192.png
+rsvg-convert -w 512 -h 512 src-icon/icon.svg -o public/icon-512.png
+rsvg-convert -w 180 -h 180 src-icon/icon.svg -o public/apple-touch-icon.png
+cp src-icon/icon.svg public/favicon.svg
+```
