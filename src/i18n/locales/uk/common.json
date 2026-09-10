@@ -1,0 +1,10 @@
+{
+  "app.title": "Stitches on Fire",
+  "editor.newPattern": "Нова схема",
+  "editor.save": "Зберегти",
+  "editor.export": "Експорт",
+  "stitch.chain": "Повітряна петля",
+  "stitch.single": "Стовпчик без накиду",
+  "stitch.double": "Стовпчик з накидом",
+  "stitch.slipStitch": "З'єднувальний стовпчик"
+}
