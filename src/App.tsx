@@ -16,7 +16,7 @@ function App() {
         </h1>
         <LanguageSwitcher />
       </header>
-      <main className="flex-1 overflow-auto p-4">
+      <main className="flex-1 overflow-hidden p-4">
         <StitchGrid />
       </main>
       <footer className="border-t border-zinc-200 bg-white">

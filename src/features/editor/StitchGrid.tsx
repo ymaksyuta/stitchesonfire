@@ -333,7 +333,7 @@ export function StitchGrid() {
   return (
     <div
       ref={containerRef}
-      className="relative w-full overflow-auto touch-pan-x touch-pan-y"
+      className="relative h-full w-full overflow-auto touch-pan-x touch-pan-y"
     >
       <canvas
         ref={canvasRef}
