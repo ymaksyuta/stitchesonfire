@@ -9,8 +9,17 @@
   "editor.myPatterns": "My patterns",
   "editor.noPatterns": "No saved patterns yet",
   "editor.untitled": "Untitled",
+  "editor.rows": "Rows",
+  "editor.cols": "Cols",
+  "editor.zoomIn": "Zoom in",
+  "editor.zoomOut": "Zoom out",
   "stitch.chain": "Chain",
   "stitch.single": "Single crochet",
   "stitch.double": "Double crochet",
-  "stitch.slipStitch": "Slip stitch"
+  "stitch.slipStitch": "Slip stitch",
+  "color.default": "Default",
+  "color.amber": "Amber",
+  "color.rust": "Rust",
+  "color.sage": "Sage",
+  "color.slateBlue": "Slate blue"
 }

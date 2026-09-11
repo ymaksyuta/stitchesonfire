@@ -9,8 +9,17 @@
   "editor.myPatterns": "Мои схемы",
   "editor.noPatterns": "Пока нет сохранённых схем",
   "editor.untitled": "Без названия",
+  "editor.rows": "Ряды",
+  "editor.cols": "Петли",
+  "editor.zoomIn": "Увеличить",
+  "editor.zoomOut": "Уменьшить",
   "stitch.chain": "Воздушная петля",
   "stitch.single": "Столбик без накида",
   "stitch.double": "Столбик с накидом",
-  "stitch.slipStitch": "Соединительный столбик"
+  "stitch.slipStitch": "Соединительный столбик",
+  "color.default": "Обычный",
+  "color.amber": "Янтарный",
+  "color.rust": "Терракотовый",
+  "color.sage": "Шалфейный",
+  "color.slateBlue": "Грифельно-синий"
 }

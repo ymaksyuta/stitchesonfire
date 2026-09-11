@@ -1,25 +1,32 @@
 import { useTranslation } from 'react-i18next'
 
 const LANGUAGES = [
-  { code: 'en', label: 'EN' },
-  { code: 'ru', label: 'RU' },
+  { code: 'en', flag: '🇬🇧', name: 'English' },
+  { code: 'ru', flag: '🇷🇺', name: 'Русский' },
 ]
 
 export function LanguageSwitcher() {
   const { i18n } = useTranslation()
 
   return (
-    <select
-      value={i18n.resolvedLanguage}
-      onChange={(e) => i18n.changeLanguage(e.target.value)}
-      className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-700"
-      aria-label="Language"
-    >
+    <div className="flex gap-1" role="group" aria-label="Language">
       {LANGUAGES.map((lang) => (
-        <option key={lang.code} value={lang.code}>
-          {lang.label}
-        </option>
+        <button
+          key={lang.code}
+          type="button"
+          onClick={() => i18n.changeLanguage(lang.code)}
+          aria-label={lang.name}
+          aria-pressed={i18n.resolvedLanguage === lang.code}
+          title={lang.name}
+          className={`flex h-8 w-8 items-center justify-center rounded-md border text-lg leading-none ${
+            i18n.resolvedLanguage === lang.code
+              ? 'border-zinc-900'
+              : 'border-transparent opacity-60'
+          }`}
+        >
+          <span aria-hidden="true">{lang.flag}</span>
+        </button>
       ))}
-    </select>
+    </div>
   )
 }
