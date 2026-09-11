@@ -92,10 +92,14 @@ export function StitchGrid() {
   const cellSize = BASE_CELL_SIZE * zoom
 
   // --- gesture bookkeeping (kept in refs so it never triggers re-renders) ---
+  const containerRef = useRef<HTMLDivElement>(null)
   const pointers = useRef(new Map<number, { x: number; y: number }>())
-  const pinchRef = useRef<{ startDist: number; startZoom: number } | null>(
-    null,
-  )
+  const pinchRef = useRef<{
+    startDist: number
+    startZoom: number
+    startCenter: { x: number; y: number }
+    startScroll: { left: number; top: number }
+  } | null>(null)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pressRef = useRef<{
     row: number
@@ -187,7 +191,19 @@ export function StitchGrid() {
         stretchRef.current = null
         const pts = Array.from(pointers.current.values())
         const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)
-        pinchRef.current = { startDist: dist, startZoom: zoom }
+        const container = containerRef.current
+        pinchRef.current = {
+          startDist: dist,
+          startZoom: zoom,
+          startCenter: {
+            x: (pts[0].x + pts[1].x) / 2,
+            y: (pts[0].y + pts[1].y) / 2,
+          },
+          startScroll: {
+            left: container?.scrollLeft ?? 0,
+            top: container?.scrollTop ?? 0,
+          },
+        }
         return
       }
       if (pointers.current.size > 2) return
@@ -228,10 +244,20 @@ export function StitchGrid() {
       if (pointers.current.size === 2 && pinchRef.current) {
         const pts = Array.from(pointers.current.values())
         const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)
-        const { startDist, startZoom } = pinchRef.current
+        const { startDist, startZoom, startCenter, startScroll } =
+          pinchRef.current
         if (startDist > 0) {
           const next = startZoom * (dist / startDist)
           setZoom(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next)))
+        }
+        const center = {
+          x: (pts[0].x + pts[1].x) / 2,
+          y: (pts[0].y + pts[1].y) / 2,
+        }
+        const container = containerRef.current
+        if (container) {
+          container.scrollLeft = startScroll.left - (center.x - startCenter.x)
+          container.scrollTop = startScroll.top - (center.y - startCenter.y)
         }
         return
       }
@@ -305,7 +331,10 @@ export function StitchGrid() {
   )
 
   return (
-    <div className="relative w-full overflow-auto touch-pan-x touch-pan-y">
+    <div
+      ref={containerRef}
+      className="relative w-full overflow-auto touch-pan-x touch-pan-y"
+    >
       <canvas
         ref={canvasRef}
         onPointerDown={handlePointerDown}
