@@ -14,6 +14,8 @@
   "editor.zoomIn": "Увеличить",
   "editor.zoomOut": "Уменьшить",
   "editor.selectedCount": "Выбрано: {{count}}",
+  "editor.showGuides": "Показать сетку",
+  "editor.menu": "Меню",
   "stitch.chain": "Воздушная петля",
   "stitch.single": "Столбик без накида",
   "stitch.double": "Столбик с накидом",

@@ -80,7 +80,8 @@ Editing rules (`src/store/patternStore.ts`), by design, not by accident:
 1. Scaffold ✅
 2. Core editor MVP (grid, stitch placement, touch) ✅
 3. Pattern persistence (save/load/list/delete via IndexedDB) ✅
-   `PatternManager` in `src/features/editor/`
+   `AppMenu` in `src/components/` (dropdown from the header menu button;
+   pattern name itself is edited inline in the header)
 4. PWA shell (manifest icons, offline test) ✅ icons generated from
    `src-icon/icon.svg` (kept in repo so they can be regenerated/redesigned;
    not part of the build output)

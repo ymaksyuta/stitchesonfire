@@ -1,32 +1,37 @@
 import { useTranslation } from 'react-i18next'
 import { StitchGrid } from './features/editor/StitchGrid'
 import { StitchPalette } from './features/editor/StitchPalette'
-import { PatternManager } from './features/editor/PatternManager'
-import { PatternSizeControl } from './features/editor/PatternSizeControl'
-import { ZoomControl } from './features/editor/ZoomControl'
+import { usePatternStore } from './store/patternStore'
+import { AppMenu } from './components/AppMenu'
 import { LanguageSwitcher } from './components/LanguageSwitcher'
 
 function App() {
   const { t } = useTranslation()
+  const { pattern, setPatternName } = usePatternStore()
+
+  const handleNameBlur = () => {
+    if (pattern.name.trim() === '') setPatternName(t('editor.untitled'))
+  }
 
   return (
     <div className="flex h-full flex-col bg-zinc-100">
-      <header className="flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-3">
-        <h1 className="text-lg font-semibold text-zinc-900">
-          {t('app.title')}
-        </h1>
+      <header className="flex items-center gap-2 border-b border-zinc-200 bg-white px-3 py-2">
+        <AppMenu />
+        <input
+          value={pattern.name}
+          onChange={(e) => setPatternName(e.target.value)}
+          onBlur={handleNameBlur}
+          placeholder={t('editor.untitled')}
+          aria-label={t('editor.untitled')}
+          className="min-w-0 flex-1 rounded-md bg-transparent px-2 py-1 text-lg font-semibold text-zinc-900 focus:bg-zinc-50 focus:outline-none"
+        />
         <LanguageSwitcher />
       </header>
       <main className="flex-1 overflow-hidden p-4">
         <StitchGrid />
       </main>
       <footer className="border-t border-zinc-200 bg-white">
-        <div className="flex items-center justify-between border-b border-zinc-100 px-3 py-1.5">
-          <PatternSizeControl />
-          <ZoomControl />
-        </div>
         <StitchPalette />
-        <PatternManager />
       </footer>
     </div>
   )

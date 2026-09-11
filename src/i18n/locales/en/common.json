@@ -14,6 +14,8 @@
   "editor.zoomIn": "Zoom in",
   "editor.zoomOut": "Zoom out",
   "editor.selectedCount": "Selected: {{count}}",
+  "editor.showGuides": "Show grid",
+  "editor.menu": "Menu",
   "stitch.chain": "Chain",
   "stitch.single": "Single crochet",
   "stitch.double": "Double crochet",

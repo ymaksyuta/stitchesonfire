@@ -39,18 +39,22 @@ function draw(
   pattern: Pattern,
   cellSize: number,
   selectedIds: Set<string>,
+  showGuides: boolean,
 ) {
   const width = pattern.cols * cellSize
   const height = pattern.rows * cellSize
   ctx.clearRect(0, 0, width, height)
 
   // Guideline dots — a soft hint of where things snap, not a hard grid.
-  ctx.fillStyle = '#e4e4e7'
-  for (let r = 0; r <= pattern.rows; r++) {
-    for (let c = 0; c <= pattern.cols; c++) {
-      ctx.beginPath()
-      ctx.arc(c * cellSize, r * cellSize, 1.5, 0, Math.PI * 2)
-      ctx.fill()
+  // Purely visual: turning them off never affects snapping itself.
+  if (showGuides) {
+    ctx.fillStyle = '#e4e4e7'
+    for (let r = 0; r <= pattern.rows; r++) {
+      for (let c = 0; c <= pattern.cols; c++) {
+        ctx.beginPath()
+        ctx.arc(c * cellSize, r * cellSize, 1.5, 0, Math.PI * 2)
+        ctx.fill()
+      }
     }
   }
 
@@ -152,6 +156,7 @@ export function StitchGrid() {
     pattern,
     zoom,
     setZoom,
+    showGuides,
     registerCanvas,
     selectedStitchIds,
     selectOnly,
@@ -200,8 +205,8 @@ export function StitchGrid() {
     canvas.style.height = `${height}px`
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 
-    draw(ctx, pattern, cellSize, new Set(selectedStitchIds))
-  }, [pattern, cellSize, selectedStitchIds])
+    draw(ctx, pattern, cellSize, new Set(selectedStitchIds), showGuides)
+  }, [pattern, cellSize, selectedStitchIds, showGuides])
 
   const clientToGrid = useCallback(
     (clientX: number, clientY: number) => {

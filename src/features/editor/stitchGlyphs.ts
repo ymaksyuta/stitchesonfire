@@ -84,9 +84,12 @@ export function placeGlyph(
 
   return glyph.map((poly) => {
     const pts = poly.points.map((p) => {
-      // Scale in local space first (axis = local y, width = local x).
-      const lx = p.x * widthScale
-      const ly = p.y * axisScale
+      // Scale in local space first (axis = local y, width = local x),
+      // back into pixels via nominalLength — local coordinates are in
+      // glyph units (roughly -0.5..0.5), not pixels, so this step can't
+      // be skipped or every glyph collapses to a fraction of a pixel.
+      const lx = p.x * placement.nominalLength * widthScale
+      const ly = p.y * placement.nominalLength * axisScale
       // Then rotate into world space and place at the base point.
       // (angle + 90deg because local "up" / -y is the glyph's own axis,
       // while angle 0 in canvas points along +x.)

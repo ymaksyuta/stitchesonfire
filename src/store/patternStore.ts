@@ -102,6 +102,7 @@ interface PatternState {
   activeStitch: StitchType
   activeColor: string | undefined
   zoom: number
+  showGuides: boolean
   selectedStitchIds: string[]
   canvasEl: HTMLCanvasElement | null
   dragPreview: PaletteDrag | null
@@ -109,6 +110,7 @@ interface PatternState {
   setActiveStitch: (stitch: StitchType) => void
   setActiveColor: (color: string | undefined) => void
   setZoom: (zoom: number) => void
+  toggleGuides: () => void
 
   registerCanvas: (el: HTMLCanvasElement | null) => void
 
@@ -133,6 +135,7 @@ interface PatternState {
   setSelectedType: (type: StitchType) => void
   setSelectedColor: (color: string | undefined) => void
 
+  setPatternName: (name: string) => void
   reset: (rows?: number, cols?: number) => void
   resizePattern: (rows: number, cols: number) => void
   loadPattern: (pattern: Pattern) => void
@@ -143,6 +146,7 @@ export const usePatternStore = create<PatternState>((set) => ({
   activeStitch: 'chain',
   activeColor: undefined,
   zoom: 1,
+  showGuides: true,
   selectedStitchIds: [],
   canvasEl: null,
   dragPreview: null,
@@ -151,6 +155,7 @@ export const usePatternStore = create<PatternState>((set) => ({
   setActiveColor: (color) => set({ activeColor: color }),
   setZoom: (zoom) =>
     set({ zoom: Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom)) }),
+  toggleGuides: () => set((state) => ({ showGuides: !state.showGuides })),
 
   registerCanvas: (el) => set({ canvasEl: el }),
 
@@ -360,6 +365,11 @@ export const usePatternStore = create<PatternState>((set) => ({
 
   reset: (rows = 10, cols = 10) =>
     set({ pattern: emptyPattern(rows, cols), selectedStitchIds: [] }),
+
+  setPatternName: (name) =>
+    set((state) => ({
+      pattern: { ...state.pattern, name, updatedAt: Date.now() },
+    })),
 
   resizePattern: (rows, cols) =>
     set((state) => {
