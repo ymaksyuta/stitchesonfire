@@ -1,96 +1,169 @@
 import { useRef, useEffect, useCallback } from 'react'
-import { usePatternStore } from '../../store/patternStore'
-import type { StitchCell, StitchType } from '../../types/pattern'
-
-const BASE_CELL_SIZE = 36
-const MIN_ZOOM = 0.5
-const MAX_ZOOM = 3
-const LONG_PRESS_MS = 450
-const DOUBLE_TAP_MS = 350
-const MOVE_CANCEL_PX = 8
-
-const STITCH_GLYPH: Record<StitchType, string> = {
-  chain: '○',
-  single: '+',
-  double: '↑',
-  slipStitch: '•',
-}
+import { usePatternStore, nodeIdsForSelection } from '../../store/patternStore'
+import type { Pattern, StitchNode } from '../../types/pattern'
+import { placeGlyph } from './stitchGlyphs'
+import {
+  BASE_CELL_SIZE,
+  MAX_ZOOM,
+  HANDLE_HIT_RADIUS_PX,
+  BODY_HIT_RADIUS_PX,
+  MOVE_CANCEL_PX,
+} from './constants'
 
 const DEFAULT_INK = '#18181b'
+const ACCENT = '#1d4ed8'
 
-function drawGrid(
-  ctx: CanvasRenderingContext2D,
-  rows: number,
-  cols: number,
-  cells: StitchCell[],
-  cellSize: number,
+function nodePos(node: StitchNode, cellSize: number) {
+  return { x: node.x * cellSize, y: node.y * cellSize }
+}
+
+function distToSegment(
+  px: number,
+  py: number,
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
 ) {
-  const width = cols * cellSize
-  const height = rows * cellSize
+  const dx = bx - ax
+  const dy = by - ay
+  const lenSq = dx * dx + dy * dy
+  const t = lenSq === 0 ? 0 : Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq))
+  const cx = ax + t * dx
+  const cy = ay + t * dy
+  return Math.hypot(px - cx, py - cy)
+}
 
+function draw(
+  ctx: CanvasRenderingContext2D,
+  pattern: Pattern,
+  cellSize: number,
+  selectedIds: Set<string>,
+) {
+  const width = pattern.cols * cellSize
+  const height = pattern.rows * cellSize
   ctx.clearRect(0, 0, width, height)
-  ctx.strokeStyle = '#d4d4d8'
-  ctx.lineWidth = 1
 
-  for (let r = 0; r <= rows; r++) {
-    ctx.beginPath()
-    ctx.moveTo(0, r * cellSize)
-    ctx.lineTo(width, r * cellSize)
-    ctx.stroke()
-  }
-  for (let c = 0; c <= cols; c++) {
-    ctx.beginPath()
-    ctx.moveTo(c * cellSize, 0)
-    ctx.lineTo(c * cellSize, height)
-    ctx.stroke()
-  }
-
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-
-  for (const cell of cells) {
-    const rowSpan = cell.rowSpan ?? 1
-    const colSpan = cell.colSpan ?? 1
-    const boxW = colSpan * cellSize
-    const boxH = rowSpan * cellSize
-    const x = cell.col * cellSize + boxW / 2
-    const y = cell.row * cellSize + boxH / 2
-
-    if (rowSpan > 1 || colSpan > 1) {
-      ctx.save()
-      ctx.strokeStyle = cell.color ?? DEFAULT_INK
-      ctx.globalAlpha = 0.35
-      ctx.lineWidth = 1.5
-      ctx.strokeRect(
-        cell.col * cellSize + 2,
-        cell.row * cellSize + 2,
-        boxW - 4,
-        boxH - 4,
-      )
-      ctx.restore()
+  // Guideline dots — a soft hint of where things snap, not a hard grid.
+  ctx.fillStyle = '#e4e4e7'
+  for (let r = 0; r <= pattern.rows; r++) {
+    for (let c = 0; c <= pattern.cols; c++) {
+      ctx.beginPath()
+      ctx.arc(c * cellSize, r * cellSize, 1.5, 0, Math.PI * 2)
+      ctx.fill()
     }
+  }
 
-    ctx.fillStyle = cell.color ?? DEFAULT_INK
-    ctx.font = `${Math.min(boxW, boxH) * 0.5}px sans-serif`
-    ctx.fillText(STITCH_GLYPH[cell.stitch], x, y)
+  const nodesById = new Map(pattern.nodes.map((n) => [n.id, n]))
+  const refCount = new Map<string, number>()
+  for (const s of pattern.stitches) {
+    refCount.set(s.baseNodeId, (refCount.get(s.baseNodeId) ?? 0) + 1)
+    refCount.set(s.tipNodeId, (refCount.get(s.tipNodeId) ?? 0) + 1)
+  }
+
+  const nominalLength = cellSize
+  const normalWidth = Math.max(1.25, cellSize * 0.045)
+  const selectedWidth = Math.max(2, cellSize * 0.07)
+
+  for (const stitch of pattern.stitches) {
+    const base = nodesById.get(stitch.baseNodeId)
+    const tip = nodesById.get(stitch.tipNodeId)
+    if (!base || !tip) continue
+    const bp = nodePos(base, cellSize)
+    const tp = nodePos(tip, cellSize)
+    const isSelected = selectedIds.has(stitch.id)
+
+    const length = Math.max(1, Math.hypot(tp.x - bp.x, tp.y - bp.y))
+    const angle = Math.atan2(tp.y - bp.y, tp.x - bp.x)
+
+    ctx.strokeStyle = isSelected ? ACCENT : stitch.color ?? DEFAULT_INK
+    ctx.lineWidth = isSelected ? selectedWidth : normalWidth
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+
+    const polylines = placeGlyph(stitch.type, {
+      baseX: bp.x,
+      baseY: bp.y,
+      length,
+      angle,
+      nominalLength,
+    })
+    for (const pts of polylines) {
+      ctx.beginPath()
+      pts.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)))
+      ctx.stroke()
+    }
+  }
+
+  // Shared-node markers: visible whenever 2+ stitches meet at a point,
+  // so fans/clusters read clearly even when nothing is selected.
+  for (const node of pattern.nodes) {
+    const count = refCount.get(node.id) ?? 0
+    if (count < 2) continue
+    const p = nodePos(node, cellSize)
+    ctx.beginPath()
+    ctx.arc(p.x, p.y, Math.max(2, cellSize * 0.06), 0, Math.PI * 2)
+    ctx.fillStyle = '#52525b'
+    ctx.fill()
+  }
+
+  // Handles for the current selection.
+  if (selectedIds.size > 0) {
+    const handleNodeIds = new Set<string>()
+    for (const s of pattern.stitches) {
+      if (!selectedIds.has(s.id)) continue
+      handleNodeIds.add(s.baseNodeId)
+      handleNodeIds.add(s.tipNodeId)
+    }
+    for (const nodeId of handleNodeIds) {
+      const node = nodesById.get(nodeId)
+      if (!node) continue
+      const p = nodePos(node, cellSize)
+      const r = Math.max(5, cellSize * 0.14)
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, r, 0, Math.PI * 2)
+      ctx.fillStyle = '#ffffff'
+      ctx.fill()
+      ctx.lineWidth = 2
+      ctx.strokeStyle = ACCENT
+      ctx.stroke()
+
+      const count = refCount.get(nodeId) ?? 0
+      if (count > 1) {
+        ctx.fillStyle = ACCENT
+        ctx.font = `${Math.max(9, cellSize * 0.24)}px sans-serif`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(String(count), p.x, p.y)
+      }
+    }
   }
 }
+
+type DragKind =
+  | { kind: 'handle'; nodeId: string }
+  | { kind: 'body'; nodeIds: string[] }
+  | { kind: 'empty' }
 
 export function StitchGrid() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const {
     pattern,
     zoom,
     setZoom,
-    placeStitch,
-    clearCell,
-    stretchCell,
+    registerCanvas,
+    selectedStitchIds,
+    selectOnly,
+    toggleSelect,
+    clearSelection,
+    moveNode,
+    finalizeNodeDrag,
+    moveNodesBy,
   } = usePatternStore()
 
   const cellSize = BASE_CELL_SIZE * zoom
 
-  // --- gesture bookkeeping (kept in refs so it never triggers re-renders) ---
-  const containerRef = useRef<HTMLDivElement>(null)
   const pointers = useRef(new Map<number, { x: number; y: number }>())
   const pinchRef = useRef<{
     startDist: number
@@ -98,25 +171,19 @@ export function StitchGrid() {
     startCenter: { x: number; y: number }
     startScroll: { left: number; top: number }
   } | null>(null)
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const pressRef = useRef<{
-    row: number
-    col: number
-    x: number
-    y: number
-    moved: boolean
-  } | null>(null)
-  const stretchRef = useRef<{
-    row: number
-    col: number
-    x: number
-    y: number
-    baseRowSpan: number
-    baseColSpan: number
-  } | null>(null)
-  const lastTapRef = useRef<{ row: number; col: number; time: number } | null>(
-    null,
-  )
+  const dragRef = useRef<
+    (DragKind & {
+      startX: number
+      startY: number
+      prevGx: number
+      prevGy: number
+    }) | null
+  >(null)
+
+  useEffect(() => {
+    registerCanvas(canvasRef.current)
+    return () => registerCanvas(null)
+  }, [registerCanvas])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -133,49 +200,58 @@ export function StitchGrid() {
     canvas.style.height = `${height}px`
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 
-    drawGrid(ctx, pattern.rows, pattern.cols, pattern.cells, cellSize)
-  }, [pattern, cellSize])
+    draw(ctx, pattern, cellSize, new Set(selectedStitchIds))
+  }, [pattern, cellSize, selectedStitchIds])
 
-  const cellAt = useCallback(
+  const clientToGrid = useCallback(
     (clientX: number, clientY: number) => {
       const canvas = canvasRef.current
-      if (!canvas) return null
+      if (!canvas) return { gx: 0, gy: 0 }
       const rect = canvas.getBoundingClientRect()
-      const x = clientX - rect.left
-      const y = clientY - rect.top
-      const col = Math.floor(x / cellSize)
-      const row = Math.floor(y / cellSize)
-      if (row < 0 || col < 0 || row >= pattern.rows || col >= pattern.cols)
-        return null
-      return { row, col }
+      return {
+        gx: (clientX - rect.left) / cellSize,
+        gy: (clientY - rect.top) / cellSize,
+      }
     },
-    [cellSize, pattern.rows, pattern.cols],
+    [cellSize],
   )
 
-  const clearLongPress = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current)
-      longPressTimer.current = null
-    }
-  }
+  /** Hit-test a client point against handles (of the current selection)
+   * first, then stitch bodies (topmost drawn wins), else empty space. */
+  const hitTest = useCallback(
+    (clientX: number, clientY: number): { kind: 'handle'; nodeId: string } | { kind: 'body'; stitchId: string } | { kind: 'empty' } => {
+      const canvas = canvasRef.current
+      if (!canvas) return { kind: 'empty' }
+      const rect = canvas.getBoundingClientRect()
+      const px = clientX - rect.left
+      const py = clientY - rect.top
+      const nodesById = new Map(pattern.nodes.map((n) => [n.id, n]))
 
-  const beginStretch = useCallback(
-    (row: number, col: number, x: number, y: number) => {
-      const existing = pattern.cells.find(
-        (c) => c.row === row && c.col === col,
-      )
-      if (!existing) return false
-      stretchRef.current = {
-        row,
-        col,
-        x,
-        y,
-        baseRowSpan: existing.rowSpan ?? 1,
-        baseColSpan: existing.colSpan ?? 1,
+      if (selectedStitchIds.length > 0) {
+        for (const nodeId of nodeIdsForSelection(pattern, selectedStitchIds)) {
+          const node = nodesById.get(nodeId)
+          if (!node) continue
+          const p = nodePos(node, cellSize)
+          if (Math.hypot(px - p.x, py - p.y) <= HANDLE_HIT_RADIUS_PX) {
+            return { kind: 'handle', nodeId }
+          }
+        }
       }
-      return true
+
+      for (let i = pattern.stitches.length - 1; i >= 0; i--) {
+        const s = pattern.stitches[i]
+        const base = nodesById.get(s.baseNodeId)
+        const tip = nodesById.get(s.tipNodeId)
+        if (!base || !tip) continue
+        const bp = nodePos(base, cellSize)
+        const tp = nodePos(tip, cellSize)
+        if (distToSegment(px, py, bp.x, bp.y, tp.x, tp.y) <= BODY_HIT_RADIUS_PX) {
+          return { kind: 'body', stitchId: s.id }
+        }
+      }
+      return { kind: 'empty' }
     },
-    [pattern.cells],
+    [pattern, cellSize, selectedStitchIds],
   )
 
   const handlePointerDown = useCallback(
@@ -183,10 +259,7 @@ export function StitchGrid() {
       pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
 
       if (pointers.current.size === 2) {
-        // Entering pinch — cancel any single-finger gesture in flight.
-        clearLongPress()
-        pressRef.current = null
-        stretchRef.current = null
+        dragRef.current = null
         const pts = Array.from(pointers.current.values())
         const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)
         const container = containerRef.current
@@ -206,32 +279,39 @@ export function StitchGrid() {
       }
       if (pointers.current.size > 2) return
 
-      const cell = cellAt(e.clientX, e.clientY)
-      if (!cell) return
+      const hit = hitTest(e.clientX, e.clientY)
+      const { gx, gy } = clientToGrid(e.clientX, e.clientY)
+      const base = { startX: e.clientX, startY: e.clientY, prevGx: gx, prevGy: gy }
 
-      pressRef.current = { ...cell, x: e.clientX, y: e.clientY, moved: false }
-
-      const lastTap = lastTapRef.current
-      const now = performance.now()
-      if (
-        lastTap &&
-        lastTap.row === cell.row &&
-        lastTap.col === cell.col &&
-        now - lastTap.time < DOUBLE_TAP_MS
-      ) {
-        lastTapRef.current = null
-        beginStretch(cell.row, cell.col, e.clientX, e.clientY)
+      if (hit.kind === 'handle') {
+        dragRef.current = { kind: 'handle', nodeId: hit.nodeId, ...base }
         return
       }
 
-      longPressTimer.current = setTimeout(() => {
-        const p = pressRef.current
-        if (p && !p.moved) {
-          beginStretch(p.row, p.col, p.x, p.y)
+      if (hit.kind === 'body') {
+        const additive = e.shiftKey || e.ctrlKey || e.metaKey
+        const alreadySelected = selectedStitchIds.includes(hit.stitchId)
+        let nextSelection = selectedStitchIds
+        if (additive) {
+          toggleSelect(hit.stitchId)
+          nextSelection = alreadySelected
+            ? selectedStitchIds.filter((id) => id !== hit.stitchId)
+            : [...selectedStitchIds, hit.stitchId]
+        } else if (!alreadySelected) {
+          selectOnly(hit.stitchId)
+          nextSelection = [hit.stitchId]
         }
-      }, LONG_PRESS_MS)
+        dragRef.current = {
+          kind: 'body',
+          nodeIds: nodeIdsForSelection(pattern, nextSelection),
+          ...base,
+        }
+        return
+      }
+
+      dragRef.current = { kind: 'empty', ...base }
     },
-    [beginStretch, cellAt, zoom],
+    [hitTest, clientToGrid, pattern, selectedStitchIds, selectOnly, toggleSelect, zoom],
   )
 
   const handlePointerMove = useCallback(
@@ -242,16 +322,12 @@ export function StitchGrid() {
       if (pointers.current.size === 2 && pinchRef.current) {
         const pts = Array.from(pointers.current.values())
         const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)
-        const { startDist, startZoom, startCenter, startScroll } =
-          pinchRef.current
+        const { startDist, startZoom, startCenter, startScroll } = pinchRef.current
         if (startDist > 0) {
           const next = startZoom * (dist / startDist)
-          setZoom(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next)))
+          setZoom(Math.min(MAX_ZOOM, Math.max(0.5, next)))
         }
-        const center = {
-          x: (pts[0].x + pts[1].x) / 2,
-          y: (pts[0].y + pts[1].y) / 2,
-        }
+        const center = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 }
         const container = containerRef.current
         if (container) {
           container.scrollLeft = startScroll.left - (center.x - startCenter.x)
@@ -260,63 +336,41 @@ export function StitchGrid() {
         return
       }
 
-      if (stretchRef.current) {
-        const s = stretchRef.current
-        const deltaCols = Math.round((e.clientX - s.x) / cellSize)
-        const deltaRows = Math.round((e.clientY - s.y) / cellSize)
-        stretchCell(
-          { row: s.row, col: s.col },
-          s.baseRowSpan + deltaRows,
-          s.baseColSpan + deltaCols,
-        )
-        return
-      }
+      const drag = dragRef.current
+      if (!drag) return
+      const { gx, gy } = clientToGrid(e.clientX, e.clientY)
 
-      if (pressRef.current) {
-        const dx = e.clientX - pressRef.current.x
-        const dy = e.clientY - pressRef.current.y
-        if (Math.hypot(dx, dy) > MOVE_CANCEL_PX) {
-          pressRef.current.moved = true
-          clearLongPress()
-        }
+      if (drag.kind === 'handle') {
+        moveNode(drag.nodeId, gx, gy)
+      } else if (drag.kind === 'body') {
+        const dGx = gx - drag.prevGx
+        const dGy = gy - drag.prevGy
+        if (drag.nodeIds.length > 0) moveNodesBy(drag.nodeIds, dGx, dGy)
       }
+      drag.prevGx = gx
+      drag.prevGy = gy
     },
-    [cellSize, setZoom, stretchCell],
+    [clientToGrid, setZoom, moveNode, moveNodesBy],
   )
 
   const endPointer = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       pointers.current.delete(e.pointerId)
-
-      if (pointers.current.size < 2) {
-        pinchRef.current = null
-      }
+      if (pointers.current.size < 2) pinchRef.current = null
       if (pointers.current.size > 0) return
 
-      clearLongPress()
+      const drag = dragRef.current
+      dragRef.current = null
+      if (!drag) return
 
-      if (stretchRef.current) {
-        stretchRef.current = null
-        pressRef.current = null
-        return
-      }
-
-      const p = pressRef.current
-      pressRef.current = null
-      if (!p || p.moved) return
-
-      lastTapRef.current = { row: p.row, col: p.col, time: performance.now() }
-
-      const existing = pattern.cells.find(
-        (c) => c.row === p.row && c.col === p.col,
-      )
-      if (existing) {
-        clearCell(p.row, p.col)
-      } else {
-        placeStitch(p.row, p.col)
+      if (drag.kind === 'handle') {
+        finalizeNodeDrag(drag.nodeId)
+      } else if (drag.kind === 'empty') {
+        const moved = Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) > MOVE_CANCEL_PX
+        if (!moved) clearSelection()
       }
     },
-    [pattern.cells, placeStitch, clearCell],
+    [finalizeNodeDrag, clearSelection],
   )
 
   const handleWheel = useCallback(

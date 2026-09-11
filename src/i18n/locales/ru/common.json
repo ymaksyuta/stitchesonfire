@@ -13,6 +13,7 @@
   "editor.cols": "Петли",
   "editor.zoomIn": "Увеличить",
   "editor.zoomOut": "Уменьшить",
+  "editor.selectedCount": "Выбрано: {{count}}",
   "stitch.chain": "Воздушная петля",
   "stitch.single": "Столбик без накида",
   "stitch.double": "Столбик с накидом",

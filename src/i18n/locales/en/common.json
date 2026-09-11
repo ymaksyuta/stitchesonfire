@@ -13,6 +13,7 @@
   "editor.cols": "Cols",
   "editor.zoomIn": "Zoom in",
   "editor.zoomOut": "Zoom out",
+  "editor.selectedCount": "Selected: {{count}}",
   "stitch.chain": "Chain",
   "stitch.single": "Single crochet",
   "stitch.double": "Double crochet",
