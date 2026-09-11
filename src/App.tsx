@@ -3,6 +3,7 @@ import { StitchGrid } from './features/editor/StitchGrid'
 import { StitchPalette } from './features/editor/StitchPalette'
 import { PatternManager } from './features/editor/PatternManager'
 import { PatternSizeControl } from './features/editor/PatternSizeControl'
+import { ZoomControl } from './features/editor/ZoomControl'
 import { LanguageSwitcher } from './components/LanguageSwitcher'
 
 function App() {
@@ -22,6 +23,7 @@ function App() {
       <footer className="border-t border-zinc-200 bg-white">
         <div className="flex items-center justify-between border-b border-zinc-100 px-3 py-1.5">
           <PatternSizeControl />
+          <ZoomControl />
         </div>
         <StitchPalette />
         <PatternManager />

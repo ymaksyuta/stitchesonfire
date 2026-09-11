@@ -1,5 +1,4 @@
 import { useRef, useEffect, useCallback } from 'react'
-import { useTranslation } from 'react-i18next'
 import { usePatternStore } from '../../store/patternStore'
 import type { StitchCell, StitchType } from '../../types/pattern'
 
@@ -78,7 +77,6 @@ function drawGrid(
 }
 
 export function StitchGrid() {
-  const { t } = useTranslation()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const {
     pattern,
@@ -345,27 +343,6 @@ export function StitchGrid() {
         onWheel={handleWheel}
         className="touch-none bg-white"
       />
-      <div className="sticky bottom-2 left-2 mt-2 flex w-fit gap-1 rounded-lg border border-zinc-200 bg-white/90 p-1 shadow-sm backdrop-blur">
-        <button
-          type="button"
-          onClick={() => setZoom(zoom - 0.25)}
-          aria-label={t('editor.zoomOut')}
-          className="h-8 w-8 rounded-md text-zinc-700 hover:bg-zinc-100"
-        >
-          −
-        </button>
-        <span className="flex w-12 items-center justify-center text-xs text-zinc-500">
-          {Math.round(zoom * 100)}%
-        </span>
-        <button
-          type="button"
-          onClick={() => setZoom(zoom + 0.25)}
-          aria-label={t('editor.zoomIn')}
-          className="h-8 w-8 rounded-md text-zinc-700 hover:bg-zinc-100"
-        >
-          +
-        </button>
-      </div>
     </div>
   )
 }
