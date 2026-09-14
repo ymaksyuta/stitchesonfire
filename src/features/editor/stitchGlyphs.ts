@@ -1,102 +1,110 @@
 import type { StitchType } from '../../types/pattern'
 
 /**
- * Every glyph is defined in its own local unit space: the base sits at
- * (0, 0), the tip at (0, -1) — "up" in local space always means "toward
- * the tip". A glyph is a list of polylines (each an array of local
- * points); a polyline with `closed: true` is stroked as a closed shape
- * (used for the chain stitch's oval).
- *
- * This local space is deliberately separate from the node graph. Nodes
- * only ever supply two numbers to a glyph: how long its axis should be
- * (base-to-tip distance) and which way it points (base-to-tip angle).
- * Nothing about node positions ever touches a glyph's control points
- * directly, so repeated node edits can't accumulate distortion in the
- * glyph shapes themselves.
+ * Every glyph is authored once, in its own local unit space centered on
+ * (0, 0) — which is exactly the stitch's `pos`. A glyph never stretches:
+ * placing it only ever rotates it (tilt) and scales it uniformly by a
+ * fixed nominal size. The connecting "legs" to whatever a stitch hooks
+ * into are a separate, plain straight line per attachment — drawn
+ * outside this module — so the symbol itself never distorts no matter
+ * how far or close its target is.
  */
 interface GlyphPolyline {
   points: { x: number; y: number }[]
   closed?: boolean
 }
 
-type Glyph = GlyphPolyline[]
+interface GlyphDef {
+  shape: GlyphPolyline[]
+  /** Local coordinates of each attachment "foot", length === arity.
+   * Default/neutral direction is straight down, i.e. (0, +0.5). */
+  attachmentPoints: { x: number; y: number }[]
+}
 
 const oval: GlyphPolyline = {
   closed: true,
   points: Array.from({ length: 16 }, (_, i) => {
     const a = (i / 16) * Math.PI * 2
-    return { x: Math.cos(a) * 0.24, y: -0.5 + Math.sin(a) * 0.34 }
+    return { x: Math.cos(a) * 0.24, y: Math.sin(a) * 0.34 }
   }),
 }
 
-const GLYPHS: Record<StitchType, Glyph> = {
-  chain: [oval],
-  slipStitch: [oval],
-  single: [
-    { points: [{ x: 0, y: 0 }, { x: 0, y: -1 }] },
-    { points: [{ x: -0.22, y: -0.5 }, { x: 0.22, y: -0.5 }] },
-  ],
-  double: [
-    { points: [{ x: 0, y: 0 }, { x: 0, y: -1 }] },
-    { points: [{ x: -0.18, y: -0.62 }, { x: 0.18, y: -0.38 }] },
-  ],
+const GLYPHS: Record<StitchType, GlyphDef> = {
+  chain: { shape: [oval], attachmentPoints: [] },
+  slipStitch: { shape: [oval], attachmentPoints: [{ x: 0, y: 0.5 }] },
+  single: {
+    shape: [
+      { points: [{ x: 0, y: -0.5 }, { x: 0, y: 0.5 }] },
+      { points: [{ x: -0.22, y: 0 }, { x: 0.22, y: 0 }] },
+    ],
+    attachmentPoints: [{ x: 0, y: 0.5 }],
+  },
+  double: {
+    shape: [
+      { points: [{ x: 0, y: -0.5 }, { x: 0, y: 0.5 }] },
+      { points: [{ x: -0.18, y: 0.12 }, { x: 0.18, y: -0.12 }] },
+    ],
+    attachmentPoints: [{ x: 0, y: 0.5 }],
+  },
 }
+
+function rotate(p: { x: number; y: number }, rotation: number) {
+  const cos = Math.cos(rotation)
+  const sin = Math.sin(rotation)
+  return { x: p.x * cos - p.y * sin, y: p.x * sin + p.y * cos }
+}
+
+/** The local default ("neutral") direction every glyph's attachments
+ * point in before any tilt is applied: straight down. */
+const DEFAULT_ANGLE = Math.PI / 2
 
 export interface GlyphPlacement {
-  /** Base point in pixels (screen/canvas space). */
-  baseX: number
-  baseY: number
-  /** Base-to-tip length in pixels. */
-  length: number
-  /** Base-to-tip angle in radians (canvas convention, y down). */
-  angle: number
-  /** Nominal length (in px) at which the glyph is drawn at 1:1 scale. */
-  nominalLength: number
+  posX: number
+  posY: number
+  /** World-space angle the glyph's attachment side should point toward
+   * (radians, canvas convention). `null` keeps the glyph upright. */
+  targetAngle: number | null
+  nominalSize: number
 }
 
-const MIN_AXIS_SCALE = 0.35
-const MAX_AXIS_SCALE = 4
+export function placeGlyph(type: StitchType, placement: GlyphPlacement) {
+  const def = GLYPHS[type]
+  const rotation =
+    placement.targetAngle === null ? 0 : placement.targetAngle - DEFAULT_ANGLE
 
-/**
- * Transform a glyph's local points into absolute canvas coordinates for
- * one placement. Stretching only ever happens along the glyph's own
- * local axes (its length axis here; width stays fixed), scale factors
- * are always positive so the glyph can tilt and elongate but never
- * mirrors/flips. The rotation this produces is a pure rotation, which
- * preserves stroke width — no ctx.scale is used, so callers can stroke
- * the result with one constant lineWidth regardless of how stretched or
- * rotated the glyph is.
- */
-export function placeGlyph(
-  type: StitchType,
-  placement: GlyphPlacement,
-): { x: number; y: number }[][] {
-  const glyph = GLYPHS[type]
-  const rawAxisScale = placement.length / placement.nominalLength
-  const axisScale = Math.min(
-    MAX_AXIS_SCALE,
-    Math.max(MIN_AXIS_SCALE, rawAxisScale),
-  )
-  const widthScale = 1 // reserved for future width handles; never negative
+  const toWorld = (p: { x: number; y: number }) => {
+    const scaled = { x: p.x * placement.nominalSize, y: p.y * placement.nominalSize }
+    const rotated = rotate(scaled, rotation)
+    return { x: placement.posX + rotated.x, y: placement.posY + rotated.y }
+  }
 
-  const cos = Math.cos(placement.angle + Math.PI / 2)
-  const sin = Math.sin(placement.angle + Math.PI / 2)
-
-  return glyph.map((poly) => {
-    const pts = poly.points.map((p) => {
-      // Scale in local space first (axis = local y, width = local x),
-      // back into pixels via nominalLength — local coordinates are in
-      // glyph units (roughly -0.5..0.5), not pixels, so this step can't
-      // be skipped or every glyph collapses to a fraction of a pixel.
-      const lx = p.x * placement.nominalLength * widthScale
-      const ly = p.y * placement.nominalLength * axisScale
-      // Then rotate into world space and place at the base point.
-      // (angle + 90deg because local "up" / -y is the glyph's own axis,
-      // while angle 0 in canvas points along +x.)
-      const wx = lx * cos - ly * sin
-      const wy = lx * sin + ly * cos
-      return { x: placement.baseX + wx, y: placement.baseY + wy }
-    })
+  const shape = def.shape.map((poly) => {
+    const pts = poly.points.map(toWorld)
     return poly.closed ? [...pts, pts[0]] : pts
   })
+  const attachmentPoints = def.attachmentPoints.map(toWorld)
+
+  return { shape, attachmentPoints }
+}
+
+/**
+ * Average the direction vectors from a stitch to each of its attachment
+ * targets (not the angles themselves — averaging angles directly breaks
+ * down near the +/-180 degree wrap, e.g. -170 and +170 would average to
+ * 0 despite both pointing almost the same way).
+ */
+export function averageAttachmentAngle(
+  fromX: number,
+  fromY: number,
+  targets: { x: number; y: number }[],
+): number | null {
+  if (targets.length === 0) return null
+  let sumX = 0
+  let sumY = 0
+  for (const t of targets) {
+    sumX += t.x - fromX
+    sumY += t.y - fromY
+  }
+  if (sumX === 0 && sumY === 0) return null
+  return Math.atan2(sumY / targets.length, sumX / targets.length)
 }

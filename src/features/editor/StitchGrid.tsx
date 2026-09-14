@@ -1,52 +1,77 @@
-import { useRef, useEffect, useCallback } from 'react'
-import { usePatternStore, nodeIdsForSelection } from '../../store/patternStore'
-import type { Pattern, StitchNode } from '../../types/pattern'
-import { placeGlyph } from './stitchGlyphs'
+import { useRef, useEffect, useCallback, useState } from 'react'
+import { usePatternStore, type Tool } from '../../store/patternStore'
+import type { Pattern, Stitch } from '../../types/pattern'
+import { placeGlyph, averageAttachmentAngle } from './stitchGlyphs'
 import {
   BASE_CELL_SIZE,
   MAX_ZOOM,
+  MIN_ZOOM,
   HANDLE_HIT_RADIUS_PX,
   BODY_HIT_RADIUS_PX,
   MOVE_CANCEL_PX,
+  NOMINAL_GLYPH_SIZE,
 } from './constants'
 
 const DEFAULT_INK = '#18181b'
 const ACCENT = '#1d4ed8'
+const SEQUENCE_RIGHT = '#93c5fd'
+const SEQUENCE_LEFT = '#fdba74'
 
-function nodePos(node: StitchNode, cellSize: number) {
-  return { x: node.x * cellSize, y: node.y * cellSize }
+interface LiveHandleDrag {
+  stitchId: string
+  index: number
+  x: number
+  y: number
 }
 
-function distToSegment(
-  px: number,
-  py: number,
-  ax: number,
-  ay: number,
-  bx: number,
-  by: number,
+/** Resolve everything needed to draw (and hit-test) one stitch: its own
+ * pixel position, its glyph shape, its attachment handle positions, and
+ * the pixel positions of whatever it's attached to (for drawing legs).
+ * A live handle drag can override one attachment's target with the
+ * pointer's current position, for a live preview while dragging. */
+function resolveStitchRender(
+  stitch: Stitch,
+  stitchesById: Map<string, Stitch>,
+  cellSize: number,
+  nominalSize: number,
+  liveOverride: LiveHandleDrag | null,
 ) {
-  const dx = bx - ax
-  const dy = by - ay
-  const lenSq = dx * dx + dy * dy
-  const t = lenSq === 0 ? 0 : Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq))
-  const cx = ax + t * dx
-  const cy = ay + t * dy
-  return Math.hypot(px - cx, py - cy)
+  const posPx = { x: stitch.pos.x * cellSize, y: stitch.pos.y * cellSize }
+  const targetPositions = stitch.attachments.map((targetId, i) => {
+    if (liveOverride && liveOverride.stitchId === stitch.id && liveOverride.index === i) {
+      return { x: liveOverride.x * cellSize, y: liveOverride.y * cellSize }
+    }
+    if (!targetId) return null
+    const t = stitchesById.get(targetId)
+    return t ? { x: t.pos.x * cellSize, y: t.pos.y * cellSize } : null
+  })
+  const angle = averageAttachmentAngle(
+    posPx.x,
+    posPx.y,
+    targetPositions.filter((p): p is { x: number; y: number } => p !== null),
+  )
+  const { shape, attachmentPoints } = placeGlyph(stitch.type, {
+    posX: posPx.x,
+    posY: posPx.y,
+    targetAngle: angle,
+    nominalSize,
+  })
+  return { posPx, shape, attachmentPoints, targetPositions }
 }
 
 function draw(
   ctx: CanvasRenderingContext2D,
   pattern: Pattern,
   cellSize: number,
+  nominalSize: number,
   selectedIds: Set<string>,
   showGuides: boolean,
+  liveOverride: LiveHandleDrag | null,
 ) {
   const width = pattern.cols * cellSize
   const height = pattern.rows * cellSize
   ctx.clearRect(0, 0, width, height)
 
-  // Guideline dots — a soft hint of where things snap, not a hard grid.
-  // Purely visual: turning them off never affects snapping itself.
   if (showGuides) {
     ctx.fillStyle = '#e4e4e7'
     for (let r = 0; r <= pattern.rows; r++) {
@@ -58,72 +83,64 @@ function draw(
     }
   }
 
-  const nodesById = new Map(pattern.nodes.map((n) => [n.id, n]))
-  const refCount = new Map<string, number>()
-  for (const s of pattern.stitches) {
-    refCount.set(s.baseNodeId, (refCount.get(s.baseNodeId) ?? 0) + 1)
-    refCount.set(s.tipNodeId, (refCount.get(s.tipNodeId) ?? 0) + 1)
+  const stitchesById = new Map(pattern.stitches.map((s) => [s.id, s]))
+
+  // Working-thread sequence: a light line, colored by which way each hop
+  // goes — makes row turns (direction reversals) visible at a glance.
+  ctx.lineWidth = Math.max(1, cellSize * 0.025)
+  for (let i = 0; i < pattern.sequence.length - 1; i++) {
+    const a = stitchesById.get(pattern.sequence[i])
+    const b = stitchesById.get(pattern.sequence[i + 1])
+    if (!a || !b) continue
+    const ax = a.pos.x * cellSize
+    const ay = a.pos.y * cellSize
+    const bx = b.pos.x * cellSize
+    const by = b.pos.y * cellSize
+    ctx.strokeStyle = bx - ax >= 0 ? SEQUENCE_RIGHT : SEQUENCE_LEFT
+    ctx.beginPath()
+    ctx.moveTo(ax, ay)
+    ctx.lineTo(bx, by)
+    ctx.stroke()
   }
 
-  const nominalLength = cellSize
+  const legWidth = Math.max(1, cellSize * 0.035)
   const normalWidth = Math.max(1.25, cellSize * 0.045)
   const selectedWidth = Math.max(2, cellSize * 0.07)
 
   for (const stitch of pattern.stitches) {
-    const base = nodesById.get(stitch.baseNodeId)
-    const tip = nodesById.get(stitch.tipNodeId)
-    if (!base || !tip) continue
-    const bp = nodePos(base, cellSize)
-    const tp = nodePos(tip, cellSize)
     const isSelected = selectedIds.has(stitch.id)
+    const render = resolveStitchRender(stitch, stitchesById, cellSize, nominalSize, liveOverride)
+    const color = isSelected ? ACCENT : stitch.color ?? DEFAULT_INK
 
-    const length = Math.max(1, Math.hypot(tp.x - bp.x, tp.y - bp.y))
-    const angle = Math.atan2(tp.y - bp.y, tp.x - bp.x)
-
-    ctx.strokeStyle = isSelected ? ACCENT : stitch.color ?? DEFAULT_INK
-    ctx.lineWidth = isSelected ? selectedWidth : normalWidth
+    // Legs: plain straight lines to whatever this stitch hooks into —
+    // deliberately not part of the glyph shape, so they can be any
+    // length without distorting the symbol itself.
+    ctx.strokeStyle = color
+    ctx.lineWidth = legWidth
     ctx.lineCap = 'round'
-    ctx.lineJoin = 'round'
+    for (const target of render.targetPositions) {
+      if (!target) continue
+      ctx.beginPath()
+      ctx.moveTo(render.posPx.x, render.posPx.y)
+      ctx.lineTo(target.x, target.y)
+      ctx.stroke()
+    }
 
-    const polylines = placeGlyph(stitch.type, {
-      baseX: bp.x,
-      baseY: bp.y,
-      length,
-      angle,
-      nominalLength,
-    })
-    for (const pts of polylines) {
+    ctx.lineWidth = isSelected ? selectedWidth : normalWidth
+    ctx.lineJoin = 'round'
+    for (const pts of render.shape) {
       ctx.beginPath()
       pts.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)))
       ctx.stroke()
     }
   }
 
-  // Shared-node markers: visible whenever 2+ stitches meet at a point,
-  // so fans/clusters read clearly even when nothing is selected.
-  for (const node of pattern.nodes) {
-    const count = refCount.get(node.id) ?? 0
-    if (count < 2) continue
-    const p = nodePos(node, cellSize)
-    ctx.beginPath()
-    ctx.arc(p.x, p.y, Math.max(2, cellSize * 0.06), 0, Math.PI * 2)
-    ctx.fillStyle = '#52525b'
-    ctx.fill()
-  }
-
-  // Handles for the current selection.
-  if (selectedIds.size > 0) {
-    const handleNodeIds = new Set<string>()
-    for (const s of pattern.stitches) {
-      if (!selectedIds.has(s.id)) continue
-      handleNodeIds.add(s.baseNodeId)
-      handleNodeIds.add(s.tipNodeId)
-    }
-    for (const nodeId of handleNodeIds) {
-      const node = nodesById.get(nodeId)
-      if (!node) continue
-      const p = nodePos(node, cellSize)
-      const r = Math.max(5, cellSize * 0.14)
+  // Attachment handles for the current selection.
+  for (const stitch of pattern.stitches) {
+    if (!selectedIds.has(stitch.id)) continue
+    const render = resolveStitchRender(stitch, stitchesById, cellSize, nominalSize, liveOverride)
+    for (const p of render.attachmentPoints) {
+      const r = Math.max(5, cellSize * 0.13)
       ctx.beginPath()
       ctx.arc(p.x, p.y, r, 0, Math.PI * 2)
       ctx.fillStyle = '#ffffff'
@@ -131,23 +148,15 @@ function draw(
       ctx.lineWidth = 2
       ctx.strokeStyle = ACCENT
       ctx.stroke()
-
-      const count = refCount.get(nodeId) ?? 0
-      if (count > 1) {
-        ctx.fillStyle = ACCENT
-        ctx.font = `${Math.max(9, cellSize * 0.24)}px sans-serif`
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'middle'
-        ctx.fillText(String(count), p.x, p.y)
-      }
     }
   }
 }
 
-type DragKind =
-  | { kind: 'handle'; nodeId: string }
-  | { kind: 'body'; nodeIds: string[] }
-  | { kind: 'empty' }
+type DragState =
+  | { kind: 'sweep'; tool: Exclude<Tool, null>; visited: Set<string> }
+  | { kind: 'handle'; stitchId: string; index: number }
+  | { kind: 'body'; ids: string[]; prevGx: number; prevGy: number }
+  | { kind: 'empty'; startX: number; startY: number }
 
 export function StitchGrid() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -162,12 +171,22 @@ export function StitchGrid() {
     selectOnly,
     toggleSelect,
     clearSelection,
-    moveNode,
-    finalizeNodeDrag,
-    moveNodesBy,
+    activeTool,
+    beginGesture,
+    finalizeStitchPos,
+    moveStitchesBy,
+    commitAttachmentDrag,
+    applyAddAt,
+    applySelectAt,
+    applyDeleteAt,
+    noteMoveTarget,
+    commitMoveSweep,
   } = usePatternStore()
 
   const cellSize = BASE_CELL_SIZE * zoom
+  const nominalSize = NOMINAL_GLYPH_SIZE * zoom
+
+  const [liveHandleDrag, setLiveHandleDrag] = useState<LiveHandleDrag | null>(null)
 
   const pointers = useRef(new Map<number, { x: number; y: number }>())
   const pinchRef = useRef<{
@@ -176,14 +195,7 @@ export function StitchGrid() {
     startCenter: { x: number; y: number }
     startScroll: { left: number; top: number }
   } | null>(null)
-  const dragRef = useRef<
-    (DragKind & {
-      startX: number
-      startY: number
-      prevGx: number
-      prevGy: number
-    }) | null
-  >(null)
+  const dragRef = useRef<DragState | null>(null)
 
   useEffect(() => {
     registerCanvas(canvasRef.current)
@@ -205,8 +217,16 @@ export function StitchGrid() {
     canvas.style.height = `${height}px`
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 
-    draw(ctx, pattern, cellSize, new Set(selectedStitchIds), showGuides)
-  }, [pattern, cellSize, selectedStitchIds, showGuides])
+    draw(
+      ctx,
+      pattern,
+      cellSize,
+      nominalSize,
+      new Set(selectedStitchIds),
+      showGuides,
+      liveHandleDrag,
+    )
+  }, [pattern, cellSize, nominalSize, selectedStitchIds, showGuides, liveHandleDrag])
 
   const clientToGrid = useCallback(
     (clientX: number, clientY: number) => {
@@ -221,42 +241,65 @@ export function StitchGrid() {
     [cellSize],
   )
 
-  /** Hit-test a client point against handles (of the current selection)
-   * first, then stitch bodies (topmost drawn wins), else empty space. */
+  /** Hit-test a client point: handles of the current selection first,
+   * then stitch bodies (topmost drawn wins), else empty space. */
   const hitTest = useCallback(
-    (clientX: number, clientY: number): { kind: 'handle'; nodeId: string } | { kind: 'body'; stitchId: string } | { kind: 'empty' } => {
+    (
+      clientX: number,
+      clientY: number,
+    ):
+      | { kind: 'handle'; stitchId: string; index: number }
+      | { kind: 'body'; stitchId: string }
+      | { kind: 'empty' } => {
       const canvas = canvasRef.current
       if (!canvas) return { kind: 'empty' }
       const rect = canvas.getBoundingClientRect()
       const px = clientX - rect.left
       const py = clientY - rect.top
-      const nodesById = new Map(pattern.nodes.map((n) => [n.id, n]))
+      const stitchesById = new Map(pattern.stitches.map((s) => [s.id, s]))
 
       if (selectedStitchIds.length > 0) {
-        for (const nodeId of nodeIdsForSelection(pattern, selectedStitchIds)) {
-          const node = nodesById.get(nodeId)
-          if (!node) continue
-          const p = nodePos(node, cellSize)
-          if (Math.hypot(px - p.x, py - p.y) <= HANDLE_HIT_RADIUS_PX) {
-            return { kind: 'handle', nodeId }
+        for (const id of selectedStitchIds) {
+          const stitch = stitchesById.get(id)
+          if (!stitch) continue
+          const render = resolveStitchRender(stitch, stitchesById, cellSize, nominalSize, null)
+          for (let i = 0; i < render.attachmentPoints.length; i++) {
+            const p = render.attachmentPoints[i]
+            if (Math.hypot(px - p.x, py - p.y) <= HANDLE_HIT_RADIUS_PX) {
+              return { kind: 'handle', stitchId: id, index: i }
+            }
           }
         }
       }
 
       for (let i = pattern.stitches.length - 1; i >= 0; i--) {
         const s = pattern.stitches[i]
-        const base = nodesById.get(s.baseNodeId)
-        const tip = nodesById.get(s.tipNodeId)
-        if (!base || !tip) continue
-        const bp = nodePos(base, cellSize)
-        const tp = nodePos(tip, cellSize)
-        if (distToSegment(px, py, bp.x, bp.y, tp.x, tp.y) <= BODY_HIT_RADIUS_PX) {
+        const posPx = { x: s.pos.x * cellSize, y: s.pos.y * cellSize }
+        if (Math.hypot(px - posPx.x, py - posPx.y) <= BODY_HIT_RADIUS_PX) {
           return { kind: 'body', stitchId: s.id }
         }
       }
       return { kind: 'empty' }
     },
-    [pattern, cellSize, selectedStitchIds],
+    [pattern, cellSize, nominalSize, selectedStitchIds],
+  )
+
+  const applySweepPoint = useCallback(
+    (tool: Exclude<Tool, null>, gx: number, gy: number, visited: Set<string>) => {
+      if (tool === 'add') {
+        const key = `${Math.round(gx)},${Math.round(gy)}`
+        if (visited.has(key)) return
+        visited.add(key)
+        applyAddAt(gx, gy)
+      } else if (tool === 'select') {
+        applySelectAt(gx, gy)
+      } else if (tool === 'delete') {
+        applyDeleteAt(gx, gy)
+      } else if (tool === 'move') {
+        noteMoveTarget(gx, gy)
+      }
+    },
+    [applyAddAt, applySelectAt, applyDeleteAt, noteMoveTarget],
   )
 
   const handlePointerDown = useCallback(
@@ -271,25 +314,29 @@ export function StitchGrid() {
         pinchRef.current = {
           startDist: dist,
           startZoom: zoom,
-          startCenter: {
-            x: (pts[0].x + pts[1].x) / 2,
-            y: (pts[0].y + pts[1].y) / 2,
-          },
-          startScroll: {
-            left: container?.scrollLeft ?? 0,
-            top: container?.scrollTop ?? 0,
-          },
+          startCenter: { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 },
+          startScroll: { left: container?.scrollLeft ?? 0, top: container?.scrollTop ?? 0 },
         }
         return
       }
       if (pointers.current.size > 2) return
 
-      const hit = hitTest(e.clientX, e.clientY)
       const { gx, gy } = clientToGrid(e.clientX, e.clientY)
-      const base = { startX: e.clientX, startY: e.clientY, prevGx: gx, prevGy: gy }
+
+      if (activeTool) {
+        beginGesture()
+        const visited = new Set<string>()
+        dragRef.current = { kind: 'sweep', tool: activeTool, visited }
+        applySweepPoint(activeTool, gx, gy, visited)
+        return
+      }
+
+      const hit = hitTest(e.clientX, e.clientY)
 
       if (hit.kind === 'handle') {
-        dragRef.current = { kind: 'handle', nodeId: hit.nodeId, ...base }
+        beginGesture()
+        setLiveHandleDrag({ stitchId: hit.stitchId, index: hit.index, x: gx, y: gy })
+        dragRef.current = { kind: 'handle', stitchId: hit.stitchId, index: hit.index }
         return
       }
 
@@ -306,17 +353,24 @@ export function StitchGrid() {
           selectOnly(hit.stitchId)
           nextSelection = [hit.stitchId]
         }
-        dragRef.current = {
-          kind: 'body',
-          nodeIds: nodeIdsForSelection(pattern, nextSelection),
-          ...base,
-        }
+        beginGesture()
+        dragRef.current = { kind: 'body', ids: nextSelection, prevGx: gx, prevGy: gy }
         return
       }
 
-      dragRef.current = { kind: 'empty', ...base }
+      dragRef.current = { kind: 'empty', startX: e.clientX, startY: e.clientY }
     },
-    [hitTest, clientToGrid, pattern, selectedStitchIds, selectOnly, toggleSelect, zoom],
+    [
+      activeTool,
+      beginGesture,
+      applySweepPoint,
+      clientToGrid,
+      hitTest,
+      selectedStitchIds,
+      selectOnly,
+      toggleSelect,
+      zoom,
+    ],
   )
 
   const handlePointerMove = useCallback(
@@ -330,7 +384,7 @@ export function StitchGrid() {
         const { startDist, startZoom, startCenter, startScroll } = pinchRef.current
         if (startDist > 0) {
           const next = startZoom * (dist / startDist)
-          setZoom(Math.min(MAX_ZOOM, Math.max(0.5, next)))
+          setZoom(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next)))
         }
         const center = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 }
         const container = containerRef.current
@@ -345,17 +399,19 @@ export function StitchGrid() {
       if (!drag) return
       const { gx, gy } = clientToGrid(e.clientX, e.clientY)
 
-      if (drag.kind === 'handle') {
-        moveNode(drag.nodeId, gx, gy)
+      if (drag.kind === 'sweep') {
+        applySweepPoint(drag.tool, gx, gy, drag.visited)
+      } else if (drag.kind === 'handle') {
+        setLiveHandleDrag({ stitchId: drag.stitchId, index: drag.index, x: gx, y: gy })
       } else if (drag.kind === 'body') {
         const dGx = gx - drag.prevGx
         const dGy = gy - drag.prevGy
-        if (drag.nodeIds.length > 0) moveNodesBy(drag.nodeIds, dGx, dGy)
+        if (drag.ids.length > 0) moveStitchesBy(drag.ids, dGx, dGy)
+        drag.prevGx = gx
+        drag.prevGy = gy
       }
-      drag.prevGx = gx
-      drag.prevGy = gy
     },
-    [clientToGrid, setZoom, moveNode, moveNodesBy],
+    [clientToGrid, setZoom, applySweepPoint, moveStitchesBy],
   )
 
   const endPointer = useCallback(
@@ -368,14 +424,26 @@ export function StitchGrid() {
       dragRef.current = null
       if (!drag) return
 
+      if (drag.kind === 'sweep') {
+        if (drag.tool === 'move') commitMoveSweep()
+        return
+      }
       if (drag.kind === 'handle') {
-        finalizeNodeDrag(drag.nodeId)
-      } else if (drag.kind === 'empty') {
+        const live = liveHandleDrag
+        setLiveHandleDrag(null)
+        if (live) commitAttachmentDrag(live.stitchId, live.index, live.x, live.y)
+        return
+      }
+      if (drag.kind === 'body') {
+        for (const id of drag.ids) finalizeStitchPos(id)
+        return
+      }
+      if (drag.kind === 'empty') {
         const moved = Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) > MOVE_CANCEL_PX
         if (!moved) clearSelection()
       }
     },
-    [finalizeNodeDrag, clearSelection],
+    [commitMoveSweep, liveHandleDrag, commitAttachmentDrag, finalizeStitchPos, clearSelection],
   )
 
   const handleWheel = useCallback(

@@ -1,11 +1,11 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { usePatternStore } from '../../store/patternStore'
 import type { StitchType } from '../../types/pattern'
-import { MOVE_CANCEL_PX } from './constants'
 import { GuideToggle } from './GuideToggle'
 import { ZoomControl } from './ZoomControl'
 import { StitchIcon } from './StitchIcon'
+import { ToolPalette } from './ToolPalette'
 
 const STITCHES: { type: StitchType; labelKey: string }[] = [
   { type: 'chain', labelKey: 'stitch.chain' },
@@ -36,14 +36,9 @@ export function StitchPalette() {
     cancelPaletteDrag,
     dragPreview,
     selectedStitchIds,
-    setSelectedType,
-    setSelectedColor,
-    deleteSelectedStitches,
   } = usePatternStore()
 
-  const downPos = useRef<{ x: number; y: number } | null>(null)
   const [colorOpen, setColorOpen] = useState(false)
-  const hasSelection = selectedStitchIds.length > 0
   const currentColor = COLORS.find((c) => c.value === activeColor) ?? COLORS[0]
 
   const onStitchPointerDown = (
@@ -51,7 +46,6 @@ export function StitchPalette() {
     type: StitchType,
   ) => {
     setActiveStitch(type)
-    downPos.current = { x: e.clientX, y: e.clientY }
     e.currentTarget.setPointerCapture(e.pointerId)
     beginPaletteDrag(type, activeColor, e.clientX, e.clientY)
   }
@@ -61,53 +55,35 @@ export function StitchPalette() {
     updatePaletteDrag(e.clientX, e.clientY)
   }
 
-  const onStitchPointerUp = (
-    e: React.PointerEvent<HTMLButtonElement>,
-    type: StitchType,
-  ) => {
-    const start = downPos.current
-    downPos.current = null
-    const moved = start
-      ? Math.hypot(e.clientX - start.x, e.clientY - start.y) > MOVE_CANCEL_PX
-      : false
-
-    if (!moved && hasSelection) {
-      // A tap (not a drag onto the canvas) while something is selected
-      // restyles the selection instead of placing a new stitch.
-      setSelectedType(type)
-      cancelPaletteDrag()
-      return
-    }
+  const onStitchPointerUp = () => {
+    // A plain tap (no real drag onto the canvas) just sets the active
+    // type/color for next time — endPaletteDrag no-ops if the drop
+    // landed outside the canvas, which a tap on the palette itself does.
     endPaletteDrag()
   }
 
   const onColorClick = (value: string | undefined) => {
     setActiveColor(value)
-    if (hasSelection) setSelectedColor(value)
     setColorOpen(false)
   }
 
   return (
     <div className="p-2">
-      {hasSelection && (
-        <div className="mb-2 flex items-center justify-between rounded-md bg-blue-50 px-2 py-1 text-xs text-blue-700">
-          <span>{t('editor.selectedCount', { count: selectedStitchIds.length })}</span>
-          <button
-            type="button"
-            onClick={deleteSelectedStitches}
-            className="rounded-md border border-red-200 px-2 py-1 text-red-600"
-          >
-            {t('editor.delete')}
-          </button>
-        </div>
+      {selectedStitchIds.length > 0 && (
+        <p className="mb-2 text-xs text-blue-700">
+          {t('editor.selectedCount', { count: selectedStitchIds.length })}
+        </p>
       )}
+      <div className="mb-2">
+        <ToolPalette />
+      </div>
       <div className="flex gap-2 overflow-x-auto">
         {STITCHES.map(({ type, labelKey }) => (
           <button
             key={type}
             onPointerDown={(e) => onStitchPointerDown(e, type)}
             onPointerMove={onStitchPointerMove}
-            onPointerUp={(e) => onStitchPointerUp(e, type)}
+            onPointerUp={onStitchPointerUp}
             onPointerCancel={cancelPaletteDrag}
             aria-label={t(labelKey)}
             title={t(labelKey)}
