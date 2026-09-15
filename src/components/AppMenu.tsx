@@ -45,6 +45,38 @@ export function AppMenu() {
     setOpen(false)
   }
 
+  const handleExport = async () => {
+    const { canvasEl, selectedStitchIds } = usePatternStore.getState()
+    if (!canvasEl) return
+
+    // Selection handles/highlight are editing UI, not part of the chart
+    // — hide them for the snapshot, then restore afterward.
+    if (selectedStitchIds.length > 0) {
+      usePatternStore.getState().clearSelection()
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    }
+
+    // Loaded on demand — jsPDF pulls in a fair amount of code that most
+    // sessions never need.
+    const { exportPatternToPdf } = await import('../features/export/exportPdf')
+    exportPatternToPdf(pattern, canvasEl, {
+      title: pattern.name || t('editor.untitled'),
+      legendTitle: t('editor.legend'),
+      stitchNames: {
+        chain: t('stitch.chain'),
+        single: t('stitch.single'),
+        double: t('stitch.double'),
+        slipStitch: t('stitch.slipStitch'),
+      },
+      countLabel: (count) => `\u00d7${count}`,
+    })
+
+    if (selectedStitchIds.length > 0) {
+      usePatternStore.setState({ selectedStitchIds })
+    }
+    setOpen(false)
+  }
+
   return (
     <div className="relative">
       <button
@@ -81,6 +113,12 @@ export function AppMenu() {
               className="block w-full border-t border-zinc-100 px-3 py-2 text-left text-sm text-zinc-800 hover:bg-zinc-50"
             >
               + {t('editor.newPattern')}
+            </button>
+            <button
+              onClick={handleExport}
+              className="block w-full border-t border-zinc-100 px-3 py-2 text-left text-sm text-zinc-800 hover:bg-zinc-50"
+            >
+              {t('editor.export')}
             </button>
             <div className="max-h-56 overflow-y-auto border-t border-zinc-100">
               <p className="px-3 py-1.5 text-xs text-zinc-400">

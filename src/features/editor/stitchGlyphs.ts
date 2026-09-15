@@ -12,43 +12,78 @@ import type { StitchType } from '../../types/pattern'
 interface GlyphPolyline {
   points: { x: number; y: number }[]
   closed?: boolean
+  /** Filled solid in the stitch's own color (e.g. a dot), rather than
+   * just stroked as an outline. */
+  filled?: boolean
 }
 
-interface GlyphDef {
+export interface GlyphVariant {
+  id: string
+  labelKey: string
   shape: GlyphPolyline[]
   /** Local coordinates of each attachment "foot", length === arity.
    * Default/neutral direction is straight down, i.e. (0, +0.5). */
   attachmentPoints: { x: number; y: number }[]
 }
 
-const oval: GlyphPolyline = {
-  closed: true,
-  points: Array.from({ length: 16 }, (_, i) => {
-    const a = (i / 16) * Math.PI * 2
-    return { x: Math.cos(a) * 0.24, y: Math.sin(a) * 0.34 }
-  }),
+function ellipsePoints(rx: number, ry: number, segments = 16) {
+  return Array.from({ length: segments }, (_, i) => {
+    const a = (i / segments) * Math.PI * 2
+    return { x: Math.cos(a) * rx, y: Math.sin(a) * ry }
+  })
 }
 
-const GLYPHS: Record<StitchType, GlyphDef> = {
-  chain: { shape: [oval], attachmentPoints: [] },
-  slipStitch: { shape: [oval], attachmentPoints: [{ x: 0, y: 0.5 }] },
-  single: {
-    shape: [
-      { points: [{ x: 0, y: -0.5 }, { x: 0, y: 0.5 }] },
-      { points: [{ x: -0.22, y: 0 }, { x: 0.22, y: 0 }] },
-    ],
-    attachmentPoints: [{ x: 0, y: 0.5 }],
-  },
+const verticalLineWithCrossbar: GlyphPolyline[] = [
+  { points: [{ x: 0, y: -0.5 }, { x: 0, y: 0.5 }] },
+  { points: [{ x: -0.22, y: 0 }, { x: 0.22, y: 0 }] },
+]
+
+/** Every stitch type has one or more variants a person can pick between
+ * for a given pattern (`Pattern.glyphVariants`) — e.g. a chain stitch
+ * drawn as an ellipse, a rounder circle, or a small filled dot. The
+ * first entry in each list is the default. */
+export const GLYPH_VARIANTS: Record<StitchType, GlyphVariant[]> = {
+  chain: [
+    {
+      id: 'circle',
+      labelKey: 'glyphVariant.circle',
+      shape: [{ closed: true, points: ellipsePoints(0.28, 0.28) }],
+      attachmentPoints: [],
+    },
+    {
+      id: 'dot',
+      labelKey: 'glyphVariant.dot',
+      shape: [{ closed: true, filled: true, points: ellipsePoints(0.12, 0.12, 10) }],
+      attachmentPoints: [],
+    },
+  ],
+  slipStitch: [
+    {
+      id: 'dot',
+      labelKey: 'glyphVariant.dot',
+      shape: [{ closed: true, filled: true, points: ellipsePoints(0.12, 0.12, 10) }],
+      attachmentPoints: [{ x: 0, y: 0.5 }],
+    },
+  ],
+  single: [
+    {
+      id: 'cross',
+      labelKey: 'glyphVariant.cross',
+      shape: verticalLineWithCrossbar,
+      attachmentPoints: [{ x: 0, y: 0.5 }],
+    },
+  ],
   // Same body as "single" — a double crochet's yarn-over is marked on its
   // *leg* (as diagonal tick marks, see YARN_OVERS below), not by giving
   // the symbol itself a different shape.
-  double: {
-    shape: [
-      { points: [{ x: 0, y: -0.5 }, { x: 0, y: 0.5 }] },
-      { points: [{ x: -0.22, y: 0 }, { x: 0.22, y: 0 }] },
-    ],
-    attachmentPoints: [{ x: 0, y: 0.5 }],
-  },
+  double: [
+    {
+      id: 'cross',
+      labelKey: 'glyphVariant.cross',
+      shape: verticalLineWithCrossbar,
+      attachmentPoints: [{ x: 0, y: 0.5 }],
+    },
+  ],
 }
 
 /** How many diagonal tick marks cross a stitch's leg — the standard
@@ -80,8 +115,13 @@ export interface GlyphPlacement {
   nominalSize: number
 }
 
-export function placeGlyph(type: StitchType, placement: GlyphPlacement) {
-  const def = GLYPHS[type]
+export function resolveVariant(type: StitchType, variantId: string | undefined): GlyphVariant {
+  const variants = GLYPH_VARIANTS[type]
+  return variants.find((v) => v.id === variantId) ?? variants[0]
+}
+
+export function placeGlyph(type: StitchType, variantId: string | undefined, placement: GlyphPlacement) {
+  const def = resolveVariant(type, variantId)
   const rotation =
     placement.targetAngle === null ? 0 : placement.targetAngle - DEFAULT_ANGLE
 
@@ -94,6 +134,7 @@ export function placeGlyph(type: StitchType, placement: GlyphPlacement) {
   const shape = def.shape.map((poly) => ({
     points: poly.points.map(toWorld),
     closed: poly.closed ?? false,
+    filled: poly.filled ?? false,
   }))
   const attachmentPoints = def.attachmentPoints.map(toWorld)
 

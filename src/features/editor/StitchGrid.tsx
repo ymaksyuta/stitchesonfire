@@ -9,7 +9,7 @@ import {
   HANDLE_HIT_RADIUS_PX,
   BODY_HIT_RADIUS_PX,
   MOVE_CANCEL_PX,
-  NOMINAL_GLYPH_SIZE,
+  GLYPH_HALO_RADIUS_RATIO,
 } from './constants'
 
 const DEFAULT_INK = '#18181b'
@@ -34,6 +34,7 @@ function resolveStitchRender(
   stitchesById: Map<string, Stitch>,
   cellSize: number,
   nominalSize: number,
+  variantId: string | undefined,
   liveOverride: LiveHandleDrag | null,
 ) {
   const posPx = { x: stitch.pos.x * cellSize, y: stitch.pos.y * cellSize }
@@ -50,7 +51,7 @@ function resolveStitchRender(
     posPx.y,
     targetPositions.filter((p): p is { x: number; y: number } => p !== null),
   )
-  const { shape, attachmentPoints } = placeGlyph(stitch.type, {
+  const { shape, attachmentPoints } = placeGlyph(stitch.type, variantId, {
     posX: posPx.x,
     posY: posPx.y,
     targetAngle: angle,
@@ -102,6 +103,7 @@ function draw(
   pattern: Pattern,
   cellSize: number,
   nominalSize: number,
+  haloRadius: number,
   selectedIds: Set<string>,
   showGuides: boolean,
   guideBrightness: number,
@@ -146,68 +148,92 @@ function draw(
   const legCasingWidth = legWidth + Math.max(2, cellSize * 0.05)
   const normalWidth = Math.max(1.25, cellSize * 0.045)
   const selectedWidth = Math.max(2, cellSize * 0.07)
-  const casingExtra = Math.max(2.5, cellSize * 0.06)
+  const haloOutlineWidth = Math.max(2, cellSize * 0.05)
 
   const renders = pattern.stitches.map((stitch) => ({
     stitch,
-    render: resolveStitchRender(stitch, stitchesById, cellSize, nominalSize, liveOverride),
+    render: resolveStitchRender(
+      stitch,
+      stitchesById,
+      cellSize,
+      nominalSize,
+      pattern.glyphVariants?.[stitch.type],
+      liveOverride,
+    ),
   }))
 
-  // Pass 1 — every leg, drawn as a double line: a wide background-colored
-  // casing stroke first, then a thin colored stroke on top. That casing
-  // is what makes crossing legs read cleanly (whichever leg is drawn
-  // later visually "cuts" the one under it) without needing any literal
-  // gap in the geometry itself.
-  ctx.lineCap = 'round'
-  for (const { stitch, render } of renders) {
-    const isSelected = selectedIds.has(stitch.id)
-    const color = isSelected ? ACCENT : stitch.color ?? DEFAULT_INK
-    const ticks = YARN_OVERS[stitch.type]
-    for (const target of render.targetPositions) {
-      if (!target) continue
-      ctx.strokeStyle = '#ffffff'
-      ctx.lineWidth = legCasingWidth
-      ctx.beginPath()
-      ctx.moveTo(render.posPx.x, render.posPx.y)
-      ctx.lineTo(target.x, target.y)
-      ctx.stroke()
+  const BG = '#ffffff'
 
-      ctx.strokeStyle = color
-      ctx.lineWidth = legWidth
-      ctx.beginPath()
-      ctx.moveTo(render.posPx.x, render.posPx.y)
-      ctx.lineTo(target.x, target.y)
-      ctx.stroke()
+  // The whole chart is drawn twice — once entirely in the background
+  // color (thick), once entirely in the real colors (thin) — so every
+  // crossing (leg over leg, leg near a glyph) reads as a clean "this one
+  // is on top" rather than an ink tangle. No literal gaps in the
+  // geometry are needed for that; the wide background pass underneath
+  // does the separating.
+  for (const pass of ['casing', 'color'] as const) {
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
 
-      if (ticks > 0) drawYarnOverTicks(ctx, render.posPx, target, ticks, legWidth, color)
-    }
-  }
+    // Legs (+ yarn-over ticks) for every stitch first...
+    for (const { stitch, render } of renders) {
+      const isSelected = selectedIds.has(stitch.id)
+      const color = isSelected ? ACCENT : stitch.color ?? DEFAULT_INK
+      const ticks = YARN_OVERS[stitch.type]
+      for (const target of render.targetPositions) {
+        if (!target) continue
+        ctx.strokeStyle = pass === 'casing' ? BG : color
+        ctx.lineWidth = pass === 'casing' ? legCasingWidth : legWidth
+        ctx.beginPath()
+        ctx.moveTo(render.posPx.x, render.posPx.y)
+        ctx.lineTo(target.x, target.y)
+        ctx.stroke()
 
-  // Pass 2 — every glyph, drawn on top of every leg (a second pass, not
-  // interleaved with pass 1, so no leg can ever end up visually on top of
-  // a glyph regardless of stitch order). Closed shapes (the chain/slip
-  // stitch oval) get filled with the background color first so nothing
-  // shows through their middle; every stroke gets the same casing
-  // treatment as the legs for consistency at crossings.
-  ctx.lineJoin = 'round'
-  for (const { stitch, render } of renders) {
-    const isSelected = selectedIds.has(stitch.id)
-    const color = isSelected ? ACCENT : stitch.color ?? DEFAULT_INK
-    const w = isSelected ? selectedWidth : normalWidth
-    for (const poly of render.shape) {
-      ctx.beginPath()
-      poly.points.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)))
-      if (poly.closed) {
-        ctx.closePath()
-        ctx.fillStyle = '#ffffff'
-        ctx.fill()
+        if (pass === 'color' && ticks > 0) {
+          drawYarnOverTicks(ctx, render.posPx, target, ticks, legWidth, color)
+        }
       }
-      ctx.strokeStyle = '#ffffff'
-      ctx.lineWidth = w + casingExtra
-      ctx.stroke()
-      ctx.strokeStyle = color
-      ctx.lineWidth = w
-      ctx.stroke()
+    }
+
+    // ...then every glyph on top, so a glyph is never left underneath a
+    // leg regardless of stitch order. The symbol's own halo circle is
+    // cleared (filled + thick-outlined in the background color) right
+    // before the symbol itself is drawn — a glyph's body is authored to
+    // always fit inside that circle, so this alone keeps its area clean
+    // without needing per-shape casing/fill logic.
+    for (const { stitch, render } of renders) {
+      const isSelected = selectedIds.has(stitch.id)
+      const color = isSelected ? ACCENT : stitch.color ?? DEFAULT_INK
+      const w = isSelected ? selectedWidth : normalWidth
+
+      if (pass === 'casing') {
+        ctx.beginPath()
+        ctx.arc(render.posPx.x, render.posPx.y, haloRadius, 0, Math.PI * 2)
+        ctx.fillStyle = BG
+        ctx.fill()
+        ctx.strokeStyle = BG
+        ctx.lineWidth = haloOutlineWidth
+        ctx.stroke()
+      }
+
+      for (const poly of render.shape) {
+        ctx.beginPath()
+        poly.points.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)))
+        if (poly.closed) ctx.closePath()
+
+        if (pass === 'casing') {
+          ctx.strokeStyle = BG
+          ctx.lineWidth = w + haloOutlineWidth
+          ctx.stroke()
+        } else {
+          if (poly.filled) {
+            ctx.fillStyle = color
+            ctx.fill()
+          }
+          ctx.strokeStyle = color
+          ctx.lineWidth = w
+          ctx.stroke()
+        }
+      }
     }
   }
 
@@ -260,7 +286,8 @@ export function StitchGrid() {
   } = usePatternStore()
 
   const cellSize = BASE_CELL_SIZE * zoom
-  const nominalSize = NOMINAL_GLYPH_SIZE * zoom
+  const haloRadius = cellSize * GLYPH_HALO_RADIUS_RATIO
+  const nominalSize = haloRadius * 2
 
   const [liveHandleDrag, setLiveHandleDrag] = useState<LiveHandleDrag | null>(null)
 
@@ -298,12 +325,22 @@ export function StitchGrid() {
       pattern,
       cellSize,
       nominalSize,
+      haloRadius,
       new Set(selectedStitchIds),
       showGuides,
       guideBrightness,
       liveHandleDrag,
     )
-  }, [pattern, cellSize, nominalSize, selectedStitchIds, showGuides, guideBrightness, liveHandleDrag])
+  }, [
+    pattern,
+    cellSize,
+    nominalSize,
+    haloRadius,
+    selectedStitchIds,
+    showGuides,
+    guideBrightness,
+    liveHandleDrag,
+  ])
 
   const clientToGrid = useCallback(
     (clientX: number, clientY: number) => {
@@ -339,7 +376,14 @@ export function StitchGrid() {
         for (const id of selectedStitchIds) {
           const stitch = stitchesById.get(id)
           if (!stitch) continue
-          const render = resolveStitchRender(stitch, stitchesById, cellSize, nominalSize, null)
+          const render = resolveStitchRender(
+            stitch,
+            stitchesById,
+            cellSize,
+            nominalSize,
+            pattern.glyphVariants?.[stitch.type],
+            null,
+          )
           for (let i = 0; i < render.attachmentPoints.length; i++) {
             const p = render.attachmentPoints[i]
             if (Math.hypot(px - p.x, py - p.y) <= HANDLE_HIT_RADIUS_PX) {

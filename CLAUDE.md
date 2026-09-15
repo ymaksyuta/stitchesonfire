@@ -94,25 +94,40 @@ Editing rules (`src/store/patternStore.ts`), by design, not by accident:
   already-active icon in `StitchPalette` toggles it off, same pattern as
   the tool buttons. With no type active, the Add tool's sweep recolors
   whatever existing stitch it touches but never inserts on empty ground.
-- Rendering (`StitchGrid.tsx`'s `draw()`) uses a casing technique instead
-  of literal spacing: every stroke (legs, glyph shape) is drawn as a wide
-  background-colored line first, then a thin colored line on top: that's
-  what makes crossings read cleanly without needing an actual gap in the
-  geometry. Legs are drawn in one full pass before any glyph is drawn, so
-  a glyph is always visually on top of every leg regardless of stitch
-  order — closed shapes (chain/slip-stitch's oval) additionally get
-  filled with the background color first. Double crochet's *symbol* is
-  identical to single crochet's; its yarn-over is marked as a diagonal
-  tick on the *leg* instead (`YARN_OVERS` in `stitchGlyphs.ts` — a future
-  treble would just be 2 ticks, no new glyph shape needed).
+- Rendering (`StitchGrid.tsx`'s `draw()`) draws the *whole chart twice* —
+  once entirely in the background color (thick), once entirely in real
+  colors (thin) — rather than literal spacing, so crossings read cleanly
+  without any actual gap in the geometry. Within each of those two
+  passes, every leg is drawn before any glyph, so a glyph always ends up
+  visually on top of every leg regardless of stitch order. A glyph's own
+  body (legs excluded) is authored to always fit inside a circle of
+  radius `GLYPH_HALO_RADIUS_RATIO * cellSize` (a quarter of a cell) —
+  that circle gets filled + thick-outlined in the background color right
+  before the symbol is drawn on top, which is what actually keeps a
+  glyph's interior clean; there's no more per-shape fill/casing logic.
+  `nominalSize` (glyph scale) is derived from that same radius, not an
+  independent constant. Double crochet's *symbol* is identical to single
+  crochet's; its yarn-over is marked as a diagonal tick on the *leg*
+  instead (`YARN_OVERS` in `stitchGlyphs.ts` — a future treble would just
+  be 2 ticks, no new glyph shape needed).
+- A stitch type can have more than one glyph **variant** (e.g. chain
+  stitch: circle or a filled dot) — `GLYPH_VARIANTS` in `stitchGlyphs.ts`.
+  Which variant is used is a per-pattern choice, `Pattern.glyphVariants:
+  Partial<Record<StitchType, string>>`, missing entries fall back to
+  each type's first/default variant. `StitchIcon.tsx` renders straight
+  from this same variant data (as SVG) rather than a hand-duplicated
+  icon set, so toolbar/picker previews can never drift from the canvas.
 
 ## Conventions
 - New stitch types: add to `StitchType`, `ALL_STITCH_TYPES` and
-  `ATTACHMENT_ARITY` in `src/types/pattern.ts`, add a glyph + attachment
-  points + yarn-over count to `GLYPHS`/`YARN_OVERS` in `stitchGlyphs.ts`
-  (local unit space, default attachment direction is straight down:
-  `{x:0, y:+0.5}`), add a `StitchIcon.tsx` case, add labels to every
-  locale file under `src/i18n/locales/*/common.json`.
+  `ATTACHMENT_ARITY` in `src/types/pattern.ts`, add an entry (with one or
+  more variants) + a yarn-over count to `GLYPH_VARIANTS`/`YARN_OVERS` in
+  `stitchGlyphs.ts` (local unit space, magnitude ≤ 0.5 so it fits the
+  halo circle; default attachment direction is straight down: `{x:0,
+  y:+0.5}`), add labels (`stitch.*` and any new `glyphVariant.*`) to
+  every locale file under `src/i18n/locales/*/common.json`. No
+  `StitchIcon.tsx` change needed — it renders from `GLYPH_VARIANTS`
+  automatically.
 - Grid editor renders on `<canvas>` for touch performance — don't switch to
   SVG without benchmarking on a real mobile device first.
 - Keep `npm run build` (tsc -b && vite build) passing before committing.
@@ -131,7 +146,12 @@ Editing rules (`src/store/patternStore.ts`), by design, not by accident:
 6. Pinch-zoom + two-finger pan ✅
 7. Free-form node-graph editor (fan-out/cluster stitches, drag-to-place
    from palette) ✅ — superseded by #9's stitch-is-its-own-anchor model
-8. Export (PNG/PDF) — not started
+8. Export ✅ — PDF only (`src/features/export/exportPdf.ts`, jsPDF,
+   lazy-loaded via dynamic `import()` on click so its ~400KB doesn't
+   bloat the main bundle): a snapshot of the live chart canvas plus a
+   legend (icon + localized name + count) for every stitch type actually
+   used, reusing `placeGlyph` so the legend icons can't drift from the
+   chart. PNG-only export not implemented — not asked for yet.
 9. Stitch-is-its-own-anchor rewrite ✅ — see "Data model" above:
    `attachments` array replaces shared graph nodes, `sequence` tracks
    thread working order (rendered as a direction-colored line), glyphs

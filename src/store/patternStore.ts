@@ -172,6 +172,7 @@ interface PatternState {
   commitMoveSweep: () => void
 
   setPatternName: (name: string) => void
+  setGlyphVariant: (type: StitchType, variantId: string) => void
   reset: (rows?: number, cols?: number) => void
   resizePattern: (rows: number, cols: number) => void
   loadPattern: (pattern: Pattern) => void
@@ -519,6 +520,15 @@ export const usePatternStore = create<PatternState>((set, get) => {
     setPatternName: (name) =>
       set((state) => ({
         pattern: { ...state.pattern, name, updatedAt: Date.now() },
+      })),
+
+    setGlyphVariant: (type, variantId) =>
+      set((state) => ({
+        pattern: {
+          ...state.pattern,
+          glyphVariants: { ...state.pattern.glyphVariants, [type]: variantId },
+          updatedAt: Date.now(),
+        },
       })),
 
     reset: (rows = 10, cols = 10) =>

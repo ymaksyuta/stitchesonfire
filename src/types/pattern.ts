@@ -45,6 +45,11 @@ export interface Pattern {
   stitches: Stitch[]
   /** Working order of the thread — independent of `attachments`. */
   sequence: string[]
+  /** Which glyph design (see GLYPH_VARIANTS in stitchGlyphs.ts) is used
+   * for each stitch type in this pattern — e.g. chain stitch drawn as an
+   * ellipse, a circle, or a dot. Missing entries fall back to the first
+   * (default) variant for that type. */
+  glyphVariants?: Partial<Record<StitchType, string>>
   createdAt: number
   updatedAt: number
 }

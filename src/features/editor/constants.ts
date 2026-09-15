@@ -16,6 +16,10 @@ export const HANDLE_HIT_RADIUS_PX = 16
 export const BODY_HIT_RADIUS_PX = 14
 export const MOVE_CANCEL_PX = 8
 
-/** Fixed on-screen size (in px, before zoom) every glyph is drawn at —
- * glyphs never stretch, only tilt. */
-export const NOMINAL_GLYPH_SIZE = 30
+/** The glyph's own body (legs excluded) must fit within a circle of this
+ * radius, expressed as a fraction of one cell. That circle is what gets
+ * cleared (filled + outlined) in the background color right before the
+ * symbol is drawn on top of it. Glyph nominal size is derived from this
+ * (diameter = 2x the radius), not an independent fixed value — see
+ * StitchGrid.tsx. */
+export const GLYPH_HALO_RADIUS_RATIO = 0.25

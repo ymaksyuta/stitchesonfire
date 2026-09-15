@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { placeGlyph, averageAttachmentAngle, YARN_OVERS } from './stitchGlyphs'
+import { placeGlyph, averageAttachmentAngle, YARN_OVERS, GLYPH_VARIANTS } from './stitchGlyphs'
+import { ALL_STITCH_TYPES } from '../../types/pattern'
 
 describe('placeGlyph', () => {
   it('places a glyph at real pixel scale, not a fraction of a pixel', () => {
-    const { shape } = placeGlyph('single', {
+    const { shape } = placeGlyph('single', undefined, {
       posX: 0,
       posY: 0,
       targetAngle: null,
@@ -16,13 +17,13 @@ describe('placeGlyph', () => {
   })
 
   it('tilts to face a given target angle without changing its size', () => {
-    const upright = placeGlyph('single', {
+    const upright = placeGlyph('single', undefined, {
       posX: 0,
       posY: 0,
       targetAngle: null,
       nominalSize: 36,
     })
-    const tilted = placeGlyph('single', {
+    const tilted = placeGlyph('single', undefined, {
       posX: 0,
       posY: 0,
       targetAngle: 0, // pointing right instead of the default (down)
@@ -43,11 +44,24 @@ describe('placeGlyph', () => {
   })
 
   it('double crochet has the same body as single crochet — the yarn-over is marked on the leg, not the symbol', () => {
-    const single = placeGlyph('single', { posX: 0, posY: 0, targetAngle: null, nominalSize: 36 })
-    const double = placeGlyph('double', { posX: 0, posY: 0, targetAngle: null, nominalSize: 36 })
+    const single = placeGlyph('single', undefined, { posX: 0, posY: 0, targetAngle: null, nominalSize: 36 })
+    const double = placeGlyph('double', undefined, { posX: 0, posY: 0, targetAngle: null, nominalSize: 36 })
     expect(double.shape).toEqual(single.shape)
     expect(YARN_OVERS.single).toBe(0)
     expect(YARN_OVERS.double).toBe(1)
+  })
+
+  it('every glyph variant fits within the halo circle (local radius 0.5)', () => {
+    for (const type of ALL_STITCH_TYPES) {
+      for (const variant of GLYPH_VARIANTS[type]) {
+        for (const poly of variant.shape) {
+          for (const p of poly.points) {
+            const r = Math.hypot(p.x, p.y)
+            expect(r, `${type}/${variant.id}`).toBeLessThanOrEqual(0.5)
+          }
+        }
+      }
+    }
   })
 })
 

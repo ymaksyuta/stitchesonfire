@@ -32,5 +32,10 @@
   "color.sage": "Шалфейный",
   "color.slateBlue": "Грифельно-синий",
   "editor.gridBrightness": "Яркость сетки",
-  "editor.moreStitchTypes": "Ещё типы петель"
+  "editor.moreStitchTypes": "Ещё типы петель",
+  "glyphVariant.circle": "Окружность",
+  "glyphVariant.dot": "Точка",
+  "glyphVariant.cross": "Крестик",
+  "editor.chooseDesign": "Выбрать обозначение",
+  "editor.legend": "Легенда"
 }

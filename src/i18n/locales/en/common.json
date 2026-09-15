@@ -32,5 +32,10 @@
   "color.sage": "Sage",
   "color.slateBlue": "Slate blue",
   "editor.gridBrightness": "Grid brightness",
-  "editor.moreStitchTypes": "More stitch types"
+  "editor.moreStitchTypes": "More stitch types",
+  "glyphVariant.circle": "Circle",
+  "glyphVariant.dot": "Dot",
+  "glyphVariant.cross": "Cross",
+  "editor.chooseDesign": "Choose design",
+  "editor.legend": "Legend"
 }
