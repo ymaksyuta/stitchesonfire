@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { Pattern, Stitch, StitchType } from '../types/pattern'
-import { ATTACHMENT_ARITY } from '../types/pattern'
+import { ATTACHMENT_ARITY, ALL_STITCH_TYPES } from '../types/pattern'
 import {
   BASE_CELL_SIZE,
   MIN_ZOOM,
@@ -34,6 +34,28 @@ function normalizePattern(p: Pattern): Pattern {
   }
 }
 
+const VISIBLE_TYPES_KEY = 'stitchesonfire:visibleStitchTypes'
+
+function loadVisibleStitchTypes(): StitchType[] {
+  try {
+    const raw = localStorage.getItem(VISIBLE_TYPES_KEY)
+    if (!raw) return ALL_STITCH_TYPES
+    const parsed = JSON.parse(raw)
+    const valid = parsed.filter((t: unknown) => ALL_STITCH_TYPES.includes(t as StitchType))
+    return valid.length > 0 ? valid : ALL_STITCH_TYPES
+  } catch {
+    return ALL_STITCH_TYPES
+  }
+}
+
+function saveVisibleStitchTypes(types: StitchType[]) {
+  try {
+    localStorage.setItem(VISIBLE_TYPES_KEY, JSON.stringify(types))
+  } catch {
+    // ignore (private browsing, storage disabled, etc.)
+  }
+}
+
 function dist(ax: number, ay: number, bx: number, by: number) {
   return Math.hypot(ax - bx, ay - by)
 }
@@ -42,6 +64,13 @@ function snapToGuideline(x: number, y: number) {
   const gx = Math.round(x)
   const gy = Math.round(y)
   return dist(x, y, gx, gy) <= SNAP_RADIUS_GRID ? { x: gx, y: gy } : { x, y }
+}
+
+/** The Add tool's sweep is explicitly about guideline intersections —
+ * unlike free-form drag placement, it always hard-rounds, never leaves a
+ * stitch at a raw fractional position. */
+function roundToGrid(x: number, y: number) {
+  return { x: Math.round(x), y: Math.round(y) }
 }
 
 function findStitchNear(stitches: Stitch[], x: number, y: number, excludeId?: string) {
@@ -85,10 +114,12 @@ const HISTORY_LIMIT = 50
 
 interface PatternState {
   pattern: Pattern
-  activeStitch: StitchType
+  activeStitch: StitchType | null
+  visibleStitchTypes: StitchType[]
   activeColor: string | undefined
   zoom: number
   showGuides: boolean
+  guideBrightness: number
   selectedStitchIds: string[] // order matters; last = "current"
   activeTool: Tool
   canvasEl: HTMLCanvasElement | null
@@ -98,10 +129,12 @@ interface PatternState {
    * commitMoveSweep, not meant to be read by UI code. */
   lastMoveTarget: string | null
 
-  setActiveStitch: (stitch: StitchType) => void
+  setActiveStitch: (stitch: StitchType | null) => void
+  toggleVisibleStitchType: (type: StitchType) => void
   setActiveColor: (color: string | undefined) => void
   setZoom: (zoom: number) => void
   toggleGuides: () => void
+  setGuideBrightness: (value: number) => void
   setActiveTool: (tool: Tool) => void
   registerCanvas: (el: HTMLCanvasElement | null) => void
 
@@ -196,9 +229,11 @@ export const usePatternStore = create<PatternState>((set, get) => {
   return {
     pattern: emptyPattern(10, 10),
     activeStitch: 'chain',
+    visibleStitchTypes: loadVisibleStitchTypes(),
     activeColor: undefined,
     zoom: 1,
     showGuides: true,
+    guideBrightness: 0.5,
     selectedStitchIds: [],
     activeTool: null,
     canvasEl: null,
@@ -207,10 +242,23 @@ export const usePatternStore = create<PatternState>((set, get) => {
     lastMoveTarget: null,
 
     setActiveStitch: (stitch) => set({ activeStitch: stitch }),
+    toggleVisibleStitchType: (type) =>
+      set((state) => {
+        const next = state.visibleStitchTypes.includes(type)
+          ? state.visibleStitchTypes.filter((t) => t !== type)
+          : ALL_STITCH_TYPES.filter(
+              (t) => t === type || state.visibleStitchTypes.includes(t),
+            )
+        if (next.length === 0) return {} // always keep at least one visible
+        saveVisibleStitchTypes(next)
+        return { visibleStitchTypes: next }
+      }),
     setActiveColor: (color) => set({ activeColor: color }),
     setZoom: (zoom) =>
       set({ zoom: Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom)) }),
     toggleGuides: () => set((state) => ({ showGuides: !state.showGuides })),
+    setGuideBrightness: (value) =>
+      set({ guideBrightness: Math.min(1, Math.max(0.05, value)) }),
     setActiveTool: (tool) =>
       set((state) => ({ activeTool: state.activeTool === tool ? null : tool })),
 
@@ -378,7 +426,10 @@ export const usePatternStore = create<PatternState>((set, get) => {
 
     applyAddAt: (x, y) =>
       set((state) => {
-        const snapped = snapToGuideline(x, y)
+        // The Add tool sweeps guideline intersections specifically — always
+        // hard-round, never leave a stitch at a raw fractional position
+        // (unlike free-form palette drag-drop, which allows that).
+        const snapped = roundToGrid(x, y)
         const existing = findStitchNear(state.pattern.stitches, snapped.x, snapped.y)
         if (existing) {
           return {
@@ -387,18 +438,21 @@ export const usePatternStore = create<PatternState>((set, get) => {
               ...state.pattern,
               stitches: state.pattern.stitches.map((s) =>
                 s.id === existing.id
-                  ? {
-                      ...s,
-                      type: state.activeStitch,
-                      color: state.activeColor,
-                      attachments: resizeAttachments(s.attachments, ATTACHMENT_ARITY[state.activeStitch]),
-                    }
+                  ? state.activeStitch === null
+                    ? { ...s, color: state.activeColor } // no type selected: recolor only
+                    : {
+                        ...s,
+                        type: state.activeStitch,
+                        color: state.activeColor,
+                        attachments: resizeAttachments(s.attachments, ATTACHMENT_ARITY[state.activeStitch]),
+                      }
                   : s,
               ),
               updatedAt: Date.now(),
             },
           }
         }
+        if (state.activeStitch === null) return {} // no type selected: never inserts on empty ground
         const { pattern, stitchId } = insertStitch(
           state.pattern,
           state.selectedStitchIds,

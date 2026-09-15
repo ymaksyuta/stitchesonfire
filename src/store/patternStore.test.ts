@@ -103,6 +103,40 @@ describe('Add tool sweep', () => {
     ])
   })
 
+  it('always hard-snaps to the guideline grid, even for off-grid raw coordinates', () => {
+    const { setActiveTool, applyAddAt } = usePatternStore.getState()
+    setActiveTool('add')
+    // Two raw points nowhere near an intersection, but both closest to (2,2).
+    applyAddAt(2.4, 1.8)
+    applyAddAt(1.6, 2.2)
+
+    const { pattern } = usePatternStore.getState()
+    expect(pattern.stitches).toHaveLength(1)
+    expect(pattern.stitches[0].pos).toEqual({ x: 2, y: 2 })
+  })
+
+  it('with no active stitch type, sweeping empty ground inserts nothing', () => {
+    const { setActiveTool, applyAddAt } = usePatternStore.getState()
+    usePatternStore.setState({ activeStitch: null })
+    setActiveTool('add')
+    applyAddAt(2, 2)
+    expect(usePatternStore.getState().pattern.stitches).toHaveLength(0)
+  })
+
+  it('with no active stitch type, sweeping an existing stitch only recolors it', () => {
+    const { setActiveTool, applyAddAt } = usePatternStore.getState()
+    setActiveTool('add')
+    applyAddAt(2, 2)
+    const original = usePatternStore.getState().pattern.stitches[0]
+
+    usePatternStore.setState({ activeStitch: null, activeColor: '#1d4ed8' })
+    applyAddAt(2, 2)
+
+    const after = usePatternStore.getState().pattern.stitches[0]
+    expect(after.type).toBe(original.type)
+    expect(after.color).toBe('#1d4ed8')
+  })
+
   it('sweeping over an existing stitch retypes it instead of duplicating', () => {
     const { setActiveTool, applyAddAt } = usePatternStore.getState()
     setActiveTool('add')

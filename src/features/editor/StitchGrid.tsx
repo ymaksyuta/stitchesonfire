@@ -1,7 +1,7 @@
 import { useRef, useEffect, useCallback, useState } from 'react'
 import { usePatternStore, type Tool } from '../../store/patternStore'
 import type { Pattern, Stitch } from '../../types/pattern'
-import { placeGlyph, averageAttachmentAngle } from './stitchGlyphs'
+import { placeGlyph, averageAttachmentAngle, YARN_OVERS } from './stitchGlyphs'
 import {
   BASE_CELL_SIZE,
   MAX_ZOOM,
@@ -59,6 +59,44 @@ function resolveStitchRender(
   return { posPx, shape, attachmentPoints, targetPositions }
 }
 
+function drawYarnOverTicks(
+  ctx: CanvasRenderingContext2D,
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  count: number,
+  legWidth: number,
+  color: string,
+) {
+  const dx = to.x - from.x
+  const dy = to.y - from.y
+  const len = Math.hypot(dx, dy) || 1
+  const px = -dy / len
+  const py = dx / len
+  const tickLen = legWidth * 2.6
+  const hx = (px * tickLen) / 2
+  const hy = (py * tickLen) / 2
+  for (let i = 0; i < count; i++) {
+    const t = count === 1 ? 0.5 : 0.3 + (0.4 * i) / (count - 1)
+    const cx = from.x + dx * t
+    const cy = from.y + dy * t
+    // Casing first (background-colored, wide), then the visible tick on
+    // top — same double-line technique as everything else, so a tick
+    // never looks like it's fusing with whatever crosses under it.
+    ctx.strokeStyle = '#ffffff'
+    ctx.lineWidth = legWidth * 2.4
+    ctx.beginPath()
+    ctx.moveTo(cx - hx, cy - hy)
+    ctx.lineTo(cx + hx, cy + hy)
+    ctx.stroke()
+    ctx.strokeStyle = color
+    ctx.lineWidth = Math.max(1, legWidth * 0.8)
+    ctx.beginPath()
+    ctx.moveTo(cx - hx, cy - hy)
+    ctx.lineTo(cx + hx, cy + hy)
+    ctx.stroke()
+  }
+}
+
 function draw(
   ctx: CanvasRenderingContext2D,
   pattern: Pattern,
@@ -66,6 +104,7 @@ function draw(
   nominalSize: number,
   selectedIds: Set<string>,
   showGuides: boolean,
+  guideBrightness: number,
   liveOverride: LiveHandleDrag | null,
 ) {
   const width = pattern.cols * cellSize
@@ -73,7 +112,7 @@ function draw(
   ctx.clearRect(0, 0, width, height)
 
   if (showGuides) {
-    ctx.fillStyle = '#e4e4e7'
+    ctx.fillStyle = `rgba(24, 24, 27, ${guideBrightness * 0.4})`
     for (let r = 0; r <= pattern.rows; r++) {
       for (let c = 0; c <= pattern.cols; c++) {
         ctx.beginPath()
@@ -103,42 +142,78 @@ function draw(
     ctx.stroke()
   }
 
-  const legWidth = Math.max(1, cellSize * 0.035)
+  const legWidth = Math.max(1, cellSize * 0.045)
+  const legCasingWidth = legWidth + Math.max(2, cellSize * 0.05)
   const normalWidth = Math.max(1.25, cellSize * 0.045)
   const selectedWidth = Math.max(2, cellSize * 0.07)
+  const casingExtra = Math.max(2.5, cellSize * 0.06)
 
-  for (const stitch of pattern.stitches) {
+  const renders = pattern.stitches.map((stitch) => ({
+    stitch,
+    render: resolveStitchRender(stitch, stitchesById, cellSize, nominalSize, liveOverride),
+  }))
+
+  // Pass 1 — every leg, drawn as a double line: a wide background-colored
+  // casing stroke first, then a thin colored stroke on top. That casing
+  // is what makes crossing legs read cleanly (whichever leg is drawn
+  // later visually "cuts" the one under it) without needing any literal
+  // gap in the geometry itself.
+  ctx.lineCap = 'round'
+  for (const { stitch, render } of renders) {
     const isSelected = selectedIds.has(stitch.id)
-    const render = resolveStitchRender(stitch, stitchesById, cellSize, nominalSize, liveOverride)
     const color = isSelected ? ACCENT : stitch.color ?? DEFAULT_INK
-
-    // Legs: plain straight lines to whatever this stitch hooks into —
-    // deliberately not part of the glyph shape, so they can be any
-    // length without distorting the symbol itself.
-    ctx.strokeStyle = color
-    ctx.lineWidth = legWidth
-    ctx.lineCap = 'round'
+    const ticks = YARN_OVERS[stitch.type]
     for (const target of render.targetPositions) {
       if (!target) continue
+      ctx.strokeStyle = '#ffffff'
+      ctx.lineWidth = legCasingWidth
       ctx.beginPath()
       ctx.moveTo(render.posPx.x, render.posPx.y)
       ctx.lineTo(target.x, target.y)
       ctx.stroke()
-    }
 
-    ctx.lineWidth = isSelected ? selectedWidth : normalWidth
-    ctx.lineJoin = 'round'
-    for (const pts of render.shape) {
+      ctx.strokeStyle = color
+      ctx.lineWidth = legWidth
       ctx.beginPath()
-      pts.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)))
+      ctx.moveTo(render.posPx.x, render.posPx.y)
+      ctx.lineTo(target.x, target.y)
+      ctx.stroke()
+
+      if (ticks > 0) drawYarnOverTicks(ctx, render.posPx, target, ticks, legWidth, color)
+    }
+  }
+
+  // Pass 2 — every glyph, drawn on top of every leg (a second pass, not
+  // interleaved with pass 1, so no leg can ever end up visually on top of
+  // a glyph regardless of stitch order). Closed shapes (the chain/slip
+  // stitch oval) get filled with the background color first so nothing
+  // shows through their middle; every stroke gets the same casing
+  // treatment as the legs for consistency at crossings.
+  ctx.lineJoin = 'round'
+  for (const { stitch, render } of renders) {
+    const isSelected = selectedIds.has(stitch.id)
+    const color = isSelected ? ACCENT : stitch.color ?? DEFAULT_INK
+    const w = isSelected ? selectedWidth : normalWidth
+    for (const poly of render.shape) {
+      ctx.beginPath()
+      poly.points.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)))
+      if (poly.closed) {
+        ctx.closePath()
+        ctx.fillStyle = '#ffffff'
+        ctx.fill()
+      }
+      ctx.strokeStyle = '#ffffff'
+      ctx.lineWidth = w + casingExtra
+      ctx.stroke()
+      ctx.strokeStyle = color
+      ctx.lineWidth = w
       ctx.stroke()
     }
   }
 
   // Attachment handles for the current selection.
-  for (const stitch of pattern.stitches) {
+  for (const { stitch, render } of renders) {
     if (!selectedIds.has(stitch.id)) continue
-    const render = resolveStitchRender(stitch, stitchesById, cellSize, nominalSize, liveOverride)
     for (const p of render.attachmentPoints) {
       const r = Math.max(5, cellSize * 0.13)
       ctx.beginPath()
@@ -166,6 +241,7 @@ export function StitchGrid() {
     zoom,
     setZoom,
     showGuides,
+    guideBrightness,
     registerCanvas,
     selectedStitchIds,
     selectOnly,
@@ -224,9 +300,10 @@ export function StitchGrid() {
       nominalSize,
       new Set(selectedStitchIds),
       showGuides,
+      guideBrightness,
       liveHandleDrag,
     )
-  }, [pattern, cellSize, nominalSize, selectedStitchIds, showGuides, liveHandleDrag])
+  }, [pattern, cellSize, nominalSize, selectedStitchIds, showGuides, guideBrightness, liveHandleDrag])
 
   const clientToGrid = useCallback(
     (clientX: number, clientY: number) => {

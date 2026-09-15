@@ -1,5 +1,7 @@
 export type StitchType = 'chain' | 'single' | 'double' | 'slipStitch'
 
+export const ALL_STITCH_TYPES: StitchType[] = ['chain', 'single', 'double', 'slipStitch']
+
 /**
  * How many attachment points a stitch type has — i.e. how many other
  * loops it hooks into. All current types hook into exactly one (or zero,

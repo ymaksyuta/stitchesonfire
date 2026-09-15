@@ -30,5 +30,7 @@
   "color.amber": "Amber",
   "color.rust": "Rust",
   "color.sage": "Sage",
-  "color.slateBlue": "Slate blue"
+  "color.slateBlue": "Slate blue",
+  "editor.gridBrightness": "Grid brightness",
+  "editor.moreStitchTypes": "More stitch types"
 }

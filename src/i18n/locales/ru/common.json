@@ -30,5 +30,7 @@
   "color.amber": "Янтарный",
   "color.rust": "Терракотовый",
   "color.sage": "Шалфейный",
-  "color.slateBlue": "Грифельно-синий"
+  "color.slateBlue": "Грифельно-синий",
+  "editor.gridBrightness": "Яркость сетки",
+  "editor.moreStitchTypes": "Ещё типы петель"
 }

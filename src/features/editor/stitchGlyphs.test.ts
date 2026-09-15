@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { placeGlyph, averageAttachmentAngle } from './stitchGlyphs'
+import { placeGlyph, averageAttachmentAngle, YARN_OVERS } from './stitchGlyphs'
 
 describe('placeGlyph', () => {
   it('places a glyph at real pixel scale, not a fraction of a pixel', () => {
@@ -9,7 +9,7 @@ describe('placeGlyph', () => {
       targetAngle: null,
       nominalSize: 36,
     })
-    const line = shape[0]
+    const line = shape[0].points
     // Upright "single": vertical line from (0,-18) to (0,18) at nominal 36px.
     expect(Math.hypot(line[0].x - 0, line[0].y - -18)).toBeLessThan(1)
     expect(Math.hypot(line[1].x - 0, line[1].y - 18)).toBeLessThan(1)
@@ -29,17 +29,25 @@ describe('placeGlyph', () => {
       nominalSize: 36,
     })
     const uprightLen = Math.hypot(
-      upright.shape[0][1].x - upright.shape[0][0].x,
-      upright.shape[0][1].y - upright.shape[0][0].y,
+      upright.shape[0].points[1].x - upright.shape[0].points[0].x,
+      upright.shape[0].points[1].y - upright.shape[0].points[0].y,
     )
     const tiltedLen = Math.hypot(
-      tilted.shape[0][1].x - tilted.shape[0][0].x,
-      tilted.shape[0][1].y - tilted.shape[0][0].y,
+      tilted.shape[0].points[1].x - tilted.shape[0].points[0].x,
+      tilted.shape[0].points[1].y - tilted.shape[0].points[0].y,
     )
     expect(tiltedLen).toBeCloseTo(uprightLen, 5)
     // Attachment point rotated from pointing down to pointing right.
     expect(tilted.attachmentPoints[0].x).toBeGreaterThan(15)
     expect(Math.abs(tilted.attachmentPoints[0].y)).toBeLessThan(1)
+  })
+
+  it('double crochet has the same body as single crochet — the yarn-over is marked on the leg, not the symbol', () => {
+    const single = placeGlyph('single', { posX: 0, posY: 0, targetAngle: null, nominalSize: 36 })
+    const double = placeGlyph('double', { posX: 0, posY: 0, targetAngle: null, nominalSize: 36 })
+    expect(double.shape).toEqual(single.shape)
+    expect(YARN_OVERS.single).toBe(0)
+    expect(YARN_OVERS.double).toBe(1)
   })
 })
 

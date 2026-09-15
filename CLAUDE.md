@@ -84,13 +84,35 @@ Editing rules (`src/store/patternStore.ts`), by design, not by accident:
   or a multi-point sweep undoes as a single step. Selection is
   intentionally excluded from history; it's ephemeral UI state, not
   pattern content.
+- The Add tool's sweep always *hard*-rounds to the nearest guideline
+  intersection (`roundToGrid` in the store) — unlike free-form palette
+  drag-drop, which only snaps if the drop is close enough
+  (`snapToGuideline`). Don't blur this distinction: the sweep exists
+  specifically to fill guideline points, so it must never leave a stitch
+  at a raw fractional position.
+- `activeStitch` can be `null` ("no type selected") — tapping the
+  already-active icon in `StitchPalette` toggles it off, same pattern as
+  the tool buttons. With no type active, the Add tool's sweep recolors
+  whatever existing stitch it touches but never inserts on empty ground.
+- Rendering (`StitchGrid.tsx`'s `draw()`) uses a casing technique instead
+  of literal spacing: every stroke (legs, glyph shape) is drawn as a wide
+  background-colored line first, then a thin colored line on top: that's
+  what makes crossings read cleanly without needing an actual gap in the
+  geometry. Legs are drawn in one full pass before any glyph is drawn, so
+  a glyph is always visually on top of every leg regardless of stitch
+  order — closed shapes (chain/slip-stitch's oval) additionally get
+  filled with the background color first. Double crochet's *symbol* is
+  identical to single crochet's; its yarn-over is marked as a diagonal
+  tick on the *leg* instead (`YARN_OVERS` in `stitchGlyphs.ts` — a future
+  treble would just be 2 ticks, no new glyph shape needed).
 
 ## Conventions
-- New stitch types: add to `StitchType` and `ATTACHMENT_ARITY` in
-  `src/types/pattern.ts`, add a glyph + attachment points to the `GLYPHS`
-  map in `stitchGlyphs.ts` (local unit space, default attachment
-  direction is straight down: `{x:0, y:+0.5}`), add a `StitchIcon.tsx`
-  case, add labels to every locale file under `src/i18n/locales/*/common.json`.
+- New stitch types: add to `StitchType`, `ALL_STITCH_TYPES` and
+  `ATTACHMENT_ARITY` in `src/types/pattern.ts`, add a glyph + attachment
+  points + yarn-over count to `GLYPHS`/`YARN_OVERS` in `stitchGlyphs.ts`
+  (local unit space, default attachment direction is straight down:
+  `{x:0, y:+0.5}`), add a `StitchIcon.tsx` case, add labels to every
+  locale file under `src/i18n/locales/*/common.json`.
 - Grid editor renders on `<canvas>` for touch performance — don't switch to
   SVG without benchmarking on a real mobile device first.
 - Keep `npm run build` (tsc -b && vite build) passing before committing.
@@ -126,7 +148,14 @@ Editing rules (`src/store/patternStore.ts`), by design, not by accident:
     tool) discussed but not implemented — sweep dedupes by grid point,
     which doesn't cleanly compose with "first point empty, second point
     existing" as a single insert+attach action yet
-11. Beta + feedback loop
+11. UI polish round ✅: fixed Add-tool sweep only-hard-snapping bug, grid
+    brightness slider (long-press `GuideToggle`), "no type selected"
+    toggle, casing-based rendering for crossings (see "Data model"
+    above), double crochet's yarn-over moved to the leg, long-press
+    tooltip on palette icons (`useLongPress.ts`), "..." picker for which
+    stitch types show in the quick-access row (`visibleStitchTypes`,
+    persisted to `localStorage` — not pattern data, so not in IndexedDB)
+12. Beta + feedback loop
 
 ## Icon regeneration
 Source is `src-icon/icon.svg`. Regenerate PNGs with:

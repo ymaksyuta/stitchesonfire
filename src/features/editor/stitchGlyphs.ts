@@ -39,13 +39,26 @@ const GLYPHS: Record<StitchType, GlyphDef> = {
     ],
     attachmentPoints: [{ x: 0, y: 0.5 }],
   },
+  // Same body as "single" — a double crochet's yarn-over is marked on its
+  // *leg* (as diagonal tick marks, see YARN_OVERS below), not by giving
+  // the symbol itself a different shape.
   double: {
     shape: [
       { points: [{ x: 0, y: -0.5 }, { x: 0, y: 0.5 }] },
-      { points: [{ x: -0.18, y: 0.12 }, { x: 0.18, y: -0.12 }] },
+      { points: [{ x: -0.22, y: 0 }, { x: 0.22, y: 0 }] },
     ],
     attachmentPoints: [{ x: 0, y: 0.5 }],
   },
+}
+
+/** How many diagonal tick marks cross a stitch's leg — the standard
+ * crochet-chart way of marking yarn-overs (0 ticks = single crochet's
+ * leg is plain, 1 tick = double crochet, a future treble would be 2). */
+export const YARN_OVERS: Record<StitchType, number> = {
+  chain: 0,
+  slipStitch: 0,
+  single: 0,
+  double: 1,
 }
 
 function rotate(p: { x: number; y: number }, rotation: number) {
@@ -78,10 +91,10 @@ export function placeGlyph(type: StitchType, placement: GlyphPlacement) {
     return { x: placement.posX + rotated.x, y: placement.posY + rotated.y }
   }
 
-  const shape = def.shape.map((poly) => {
-    const pts = poly.points.map(toWorld)
-    return poly.closed ? [...pts, pts[0]] : pts
-  })
+  const shape = def.shape.map((poly) => ({
+    points: poly.points.map(toWorld),
+    closed: poly.closed ?? false,
+  }))
   const attachmentPoints = def.attachmentPoints.map(toWorld)
 
   return { shape, attachmentPoints }
