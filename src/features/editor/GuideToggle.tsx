@@ -49,7 +49,7 @@ export function GuideToggle() {
             className="fixed inset-0 z-30 cursor-default"
           />
           <div className="absolute bottom-full left-1/2 z-40 mb-2 w-36 -translate-x-1/2 rounded-md border border-zinc-200 bg-white p-3 shadow-lg">
-            <p className="mb-1 text-xs text-zinc-500">{t('editor.gridBrightness')}</p>
+            <p className="mb-1 text-xs text-zinc-500 select-none">{t('editor.gridBrightness')}</p>
             <input
               type="range"
               min={0.05}

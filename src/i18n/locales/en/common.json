@@ -37,5 +37,6 @@
   "glyphVariant.dot": "Dot",
   "glyphVariant.cross": "Cross",
   "editor.chooseDesign": "Choose design",
-  "editor.legend": "Legend"
+  "editor.legend": "Legend",
+  "editor.showSequence": "Show sequence"
 }

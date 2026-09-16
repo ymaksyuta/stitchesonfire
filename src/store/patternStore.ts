@@ -119,6 +119,7 @@ interface PatternState {
   activeColor: string | undefined
   zoom: number
   showGuides: boolean
+  showSequence: boolean
   guideBrightness: number
   selectedStitchIds: string[] // order matters; last = "current"
   activeTool: Tool
@@ -134,6 +135,7 @@ interface PatternState {
   setActiveColor: (color: string | undefined) => void
   setZoom: (zoom: number) => void
   toggleGuides: () => void
+  toggleSequence: () => void
   setGuideBrightness: (value: number) => void
   setActiveTool: (tool: Tool) => void
   registerCanvas: (el: HTMLCanvasElement | null) => void
@@ -234,6 +236,7 @@ export const usePatternStore = create<PatternState>((set, get) => {
     activeColor: undefined,
     zoom: 1,
     showGuides: true,
+    showSequence: true,
     guideBrightness: 0.5,
     selectedStitchIds: [],
     activeTool: null,
@@ -258,6 +261,7 @@ export const usePatternStore = create<PatternState>((set, get) => {
     setZoom: (zoom) =>
       set({ zoom: Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom)) }),
     toggleGuides: () => set((state) => ({ showGuides: !state.showGuides })),
+    toggleSequence: () => set((state) => ({ showSequence: !state.showSequence })),
     setGuideBrightness: (value) =>
       set({ guideBrightness: Math.min(1, Math.max(0.05, value)) }),
     setActiveTool: (tool) =>

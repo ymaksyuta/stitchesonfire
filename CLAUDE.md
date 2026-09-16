@@ -175,7 +175,18 @@ Editing rules (`src/store/patternStore.ts`), by design, not by accident:
     tooltip on palette icons (`useLongPress.ts`), "..." picker for which
     stitch types show in the quick-access row (`visibleStitchTypes`,
     persisted to `localStorage` — not pattern data, so not in IndexedDB)
-12. Beta + feedback loop
+12. Rendering/export polish round ✅: draw order is now three strictly
+    sequential stages (sequence line, then legs, then symbols), each its
+    own full background-then-color double pass — was previously legs+
+    symbols interleaved per-pass, sequence line was a single stroke not
+    double-lined. Sequence line visibility is now toggleable
+    (`SequenceToggle.tsx`, same pattern as `GuideToggle`). PDF export:
+    fixed Cyrillic (and anything non-WinAnsi) coming out as mojibade —
+    jsPDF's built-in fonts don't cover those glyphs, so every label is
+    now rasterized via canvas 2D text rendering first and placed as an
+    image (`textToImage`/`drawText` in `exportPdf.ts`), never
+    `doc.text()` directly.
+13. Beta + feedback loop
 
 ## Icon regeneration
 Source is `src-icon/icon.svg`. Regenerate PNGs with:

@@ -37,5 +37,6 @@
   "glyphVariant.dot": "Точка",
   "glyphVariant.cross": "Крестик",
   "editor.chooseDesign": "Выбрать обозначение",
-  "editor.legend": "Легенда"
+  "editor.legend": "Легенда",
+  "editor.showSequence": "Показать нить"
 }

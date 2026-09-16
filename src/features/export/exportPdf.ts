@@ -3,12 +3,67 @@ import type { Pattern, StitchType } from '../../types/pattern'
 import { ALL_STITCH_TYPES } from '../../types/pattern'
 import { placeGlyph } from '../editor/stitchGlyphs'
 
+/**
+ * jsPDF's built-in fonts (Helvetica etc.) only cover WinAnsi/Latin
+ * glyphs — Cyrillic (or anything else outside that set) comes out as
+ * mojibake with `doc.text()`. Route every label through the browser's
+ * own canvas text rendering instead (which has no such limitation),
+ * then place the result as an image. `doc.text(x, y)` positions the
+ * text's baseline, so this returns enough to reproduce that placement.
+ */
+function textToImage(
+  text: string,
+  fontSizePt: number,
+  color: string,
+  fontWeight: 'normal' | 'bold' = 'normal',
+): { dataUrl: string; widthPt: number; heightPt: number; baselinePt: number } {
+  const font = `${fontWeight} ${fontSizePt}px sans-serif`
+  const measure = document.createElement('canvas').getContext('2d')
+  let widthPt = fontSizePt * text.length // fallback if measuring fails
+  if (measure) {
+    measure.font = font
+    widthPt = Math.ceil(measure.measureText(text).width) + 2
+  }
+  const baselinePt = fontSizePt * 1.0
+  const heightPt = fontSizePt * 1.3
+
+  const dpr = 3 // oversample for a crisp look at print resolution
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, widthPt * dpr)
+  canvas.height = Math.max(1, heightPt * dpr)
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return { dataUrl: '', widthPt: 0, heightPt: 0, baselinePt: 0 }
+  ctx.scale(dpr, dpr)
+  ctx.font = font
+  ctx.fillStyle = color
+  ctx.textBaseline = 'alphabetic'
+  ctx.fillText(text, 1, baselinePt)
+
+  return { dataUrl: canvas.toDataURL('image/png'), widthPt, heightPt, baselinePt }
+}
+
+/** Place text (as an image, see textToImage) so its baseline lands at
+ * PDF coordinate (x, y) — matching how doc.text(text, x, y) positions. */
+function drawText(
+  doc: jsPDF,
+  text: string,
+  x: number,
+  y: number,
+  fontSizePt: number,
+  color = '#18181b',
+  fontWeight: 'normal' | 'bold' = 'normal',
+) {
+  const img = textToImage(text, fontSizePt, color, fontWeight)
+  if (!img.dataUrl) return
+  doc.addImage(img.dataUrl, 'PNG', x, y - img.baselinePt, img.widthPt, img.heightPt)
+}
+
 /** Render one stitch type's glyph (using its chosen variant for this
  * pattern) to a small standalone PNG, for the legend — reuses the exact
  * same geometry as the chart itself, so the legend can never drift from
  * what's actually drawn. */
 function renderLegendIcon(type: StitchType, variantId: string | undefined, sizePt: number): string {
-  const dpr = 3 // oversample for a crisp look at print resolution
+  const dpr = 3
   const canvas = document.createElement('canvas')
   canvas.width = sizePt * dpr
   canvas.height = sizePt * dpr
@@ -58,8 +113,7 @@ export function exportPatternToPdf(
   const pageHeight = doc.internal.pageSize.getHeight()
   const margin = 36
 
-  doc.setFontSize(16)
-  doc.text(labels.title, margin, margin)
+  drawText(doc, labels.title, margin, margin, 16, '#18181b', 'bold')
 
   const chartDataUrl = chartCanvas.toDataURL('image/png')
   const maxImgWidth = pageWidth - margin * 2
@@ -79,10 +133,8 @@ export function exportPatternToPdf(
 
   let y = imgY + imgHeight + 30
   if (counts.size > 0) {
-    doc.setFontSize(13)
-    doc.text(labels.legendTitle, margin, y)
-    y += 20
-    doc.setFontSize(11)
+    drawText(doc, labels.legendTitle, margin, y, 13, '#18181b', 'bold')
+    y += 22
     const iconSize = 18
     for (const type of ALL_STITCH_TYPES) {
       const count = counts.get(type)
@@ -95,7 +147,13 @@ export function exportPatternToPdf(
       if (iconDataUrl) {
         doc.addImage(iconDataUrl, 'PNG', margin, y - iconSize + 3, iconSize, iconSize)
       }
-      doc.text(`${labels.stitchNames[type]} \u2014 ${labels.countLabel(count)}`, margin + iconSize + 10, y)
+      drawText(
+        doc,
+        `${labels.stitchNames[type]} \u2014 ${labels.countLabel(count)}`,
+        margin + iconSize + 10,
+        y,
+        11,
+      )
       y += 24
     }
   }

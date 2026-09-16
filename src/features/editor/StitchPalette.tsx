@@ -4,6 +4,7 @@ import { usePatternStore } from '../../store/patternStore'
 import { ALL_STITCH_TYPES, type StitchType } from '../../types/pattern'
 import { GLYPH_VARIANTS } from './stitchGlyphs'
 import { GuideToggle } from './GuideToggle'
+import { SequenceToggle } from './SequenceToggle'
 import { ZoomControl } from './ZoomControl'
 import { StitchIcon } from './StitchIcon'
 import { ToolPalette } from './ToolPalette'
@@ -40,7 +41,6 @@ export function StitchPalette() {
     endPaletteDrag,
     cancelPaletteDrag,
     dragPreview,
-    selectedStitchIds,
     visibleStitchTypes,
     toggleVisibleStitchType,
     setGlyphVariant,
@@ -113,11 +113,6 @@ export function StitchPalette() {
 
   return (
     <div className="p-2">
-      {selectedStitchIds.length > 0 && (
-        <p className="mb-2 text-xs text-blue-700">
-          {t('editor.selectedCount', { count: selectedStitchIds.length })}
-        </p>
-      )}
       <div className="mb-2">
         <ToolPalette />
       </div>
@@ -337,6 +332,7 @@ export function StitchPalette() {
         </div>
 
         <GuideToggle />
+        <SequenceToggle />
         <ZoomControl />
       </div>
 

@@ -107,6 +107,7 @@ function draw(
   selectedIds: Set<string>,
   showGuides: boolean,
   guideBrightness: number,
+  showSequence: boolean,
   liveOverride: LiveHandleDrag | null,
 ) {
   const width = pattern.cols * cellSize
@@ -124,26 +125,11 @@ function draw(
     }
   }
 
+  const BG = '#ffffff'
   const stitchesById = new Map(pattern.stitches.map((s) => [s.id, s]))
 
-  // Working-thread sequence: a light line, colored by which way each hop
-  // goes — makes row turns (direction reversals) visible at a glance.
-  ctx.lineWidth = Math.max(1, cellSize * 0.025)
-  for (let i = 0; i < pattern.sequence.length - 1; i++) {
-    const a = stitchesById.get(pattern.sequence[i])
-    const b = stitchesById.get(pattern.sequence[i + 1])
-    if (!a || !b) continue
-    const ax = a.pos.x * cellSize
-    const ay = a.pos.y * cellSize
-    const bx = b.pos.x * cellSize
-    const by = b.pos.y * cellSize
-    ctx.strokeStyle = bx - ax >= 0 ? SEQUENCE_RIGHT : SEQUENCE_LEFT
-    ctx.beginPath()
-    ctx.moveTo(ax, ay)
-    ctx.lineTo(bx, by)
-    ctx.stroke()
-  }
-
+  const sequenceWidth = Math.max(1, cellSize * 0.025)
+  const sequenceCasingWidth = sequenceWidth + Math.max(1.5, cellSize * 0.035)
   const legWidth = Math.max(1, cellSize * 0.045)
   const legCasingWidth = legWidth + Math.max(2, cellSize * 0.05)
   const normalWidth = Math.max(1.25, cellSize * 0.045)
@@ -162,19 +148,40 @@ function draw(
     ),
   }))
 
-  const BG = '#ffffff'
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
 
-  // The whole chart is drawn twice — once entirely in the background
-  // color (thick), once entirely in the real colors (thin) — so every
-  // crossing (leg over leg, leg near a glyph) reads as a clean "this one
-  // is on top" rather than an ink tangle. No literal gaps in the
-  // geometry are needed for that; the wide background pass underneath
-  // does the separating.
+  // Draw order is three complete stages, each stage its own full
+  // background-then-color double pass — not interleaved with each
+  // other — so a later stage always reads as visually on top of an
+  // earlier one, on top of the guideline dots:
+  //   1. the working-thread sequence line
+  //   2. every attachment "leg" (+ yarn-over ticks)
+  //   3. every symbol (halo circle, then its outline)
+
+  // Stage 1 — sequence line, as a double line like everything else.
+  if (showSequence) {
+    for (const pass of ['casing', 'color'] as const) {
+      for (let i = 0; i < pattern.sequence.length - 1; i++) {
+        const a = stitchesById.get(pattern.sequence[i])
+        const b = stitchesById.get(pattern.sequence[i + 1])
+        if (!a || !b) continue
+        const ax = a.pos.x * cellSize
+        const ay = a.pos.y * cellSize
+        const bx = b.pos.x * cellSize
+        const by = b.pos.y * cellSize
+        ctx.strokeStyle = pass === 'casing' ? BG : bx - ax >= 0 ? SEQUENCE_RIGHT : SEQUENCE_LEFT
+        ctx.lineWidth = pass === 'casing' ? sequenceCasingWidth : sequenceWidth
+        ctx.beginPath()
+        ctx.moveTo(ax, ay)
+        ctx.lineTo(bx, by)
+        ctx.stroke()
+      }
+    }
+  }
+
+  // Stage 2 — every attachment leg (+ its yarn-over ticks).
   for (const pass of ['casing', 'color'] as const) {
-    ctx.lineCap = 'round'
-    ctx.lineJoin = 'round'
-
-    // Legs (+ yarn-over ticks) for every stitch first...
     for (const { stitch, render } of renders) {
       const isSelected = selectedIds.has(stitch.id)
       const color = isSelected ? ACCENT : stitch.color ?? DEFAULT_INK
@@ -193,13 +200,14 @@ function draw(
         }
       }
     }
+  }
 
-    // ...then every glyph on top, so a glyph is never left underneath a
-    // leg regardless of stitch order. The symbol's own halo circle is
-    // cleared (filled + thick-outlined in the background color) right
-    // before the symbol itself is drawn — a glyph's body is authored to
-    // always fit inside that circle, so this alone keeps its area clean
-    // without needing per-shape casing/fill logic.
+  // Stage 3 — every symbol: its halo circle (background fill + thick
+  // outline, clearing the area it sits in), then its own outline. A
+  // glyph's body is authored to always fit inside that circle, so the
+  // halo alone keeps the symbol's interior clean — no per-shape
+  // fill/casing logic needed beyond it.
+  for (const pass of ['casing', 'color'] as const) {
     for (const { stitch, render } of renders) {
       const isSelected = selectedIds.has(stitch.id)
       const color = isSelected ? ACCENT : stitch.color ?? DEFAULT_INK
@@ -268,6 +276,7 @@ export function StitchGrid() {
     setZoom,
     showGuides,
     guideBrightness,
+    showSequence,
     registerCanvas,
     selectedStitchIds,
     selectOnly,
@@ -329,6 +338,7 @@ export function StitchGrid() {
       new Set(selectedStitchIds),
       showGuides,
       guideBrightness,
+      showSequence,
       liveHandleDrag,
     )
   }, [
@@ -339,6 +349,7 @@ export function StitchGrid() {
     selectedStitchIds,
     showGuides,
     guideBrightness,
+    showSequence,
     liveHandleDrag,
   ])
 
