@@ -175,18 +175,24 @@ export async function exportPatternToPdf(
  *
  * What *is* honored everywhere, regardless of the window's chrome, is a
  * real network response carrying `Content-Disposition: attachment` — it's
- * the same mechanism used for downloading any ordinary file from a server,
- * so the browser's download manager handles it and the current page is
- * left alone (no navigation away, no black screen). The service worker
- * (see sw.ts) intercepts a same-origin fetch to a matching `/__export/`
- * URL and answers it with the blob and that header. We hand it the blob
- * over a MessageChannel and wait for an ack before navigating, so the
- * fetch can't race ahead of the worker actually having the data.
+ * the same mechanism used for downloading any ordinary file from a server.
+ * The service worker (see sw.ts) intercepts a same-origin fetch to a
+ * matching `/__export/` URL and answers it with the blob and that header.
+ * We hand it the blob over a MessageChannel and wait for an ack first, so
+ * the fetch can't race ahead of the worker actually having the data.
+ *
+ * That response still needs somewhere to go. A full `window.location.href`
+ * navigation on the app's own document turned out to go nowhere useful in
+ * an installed Firefox PWA window (the navigation seems to just get
+ * dropped, leaving about:blank) — so instead we click a real, DOM-attached,
+ * `target="_blank"` anchor: a new auxiliary browsing context, rather than
+ * tearing down the app's own page, which is the same mechanism ordinary
+ * "download" links on websites use.
  *
  * If no service worker is controlling the page yet (e.g. first load
- * before it's finished installing), fall back to the plain anchor click,
- * which is what already works for Chrome's PWA and for regular tabs in
- * either browser.
+ * before it's finished installing), fall back to a plain `download`
+ * anchor on a `blob:` URL in the current document, which is what already
+ * works for Chrome's PWA and for regular tabs in either browser.
  */
 async function saveBlob(blob: Blob, filename: string) {
   const controller = navigator.serviceWorker?.controller
@@ -198,7 +204,13 @@ async function saveBlob(blob: Blob, filename: string) {
       controller.postMessage({ type: 'export-pdf', id, blob }, [channel.port2])
     })
     await acked
-    window.location.href = `/__export/${id}.pdf?name=${encodeURIComponent(filename)}`
+    const a = document.createElement('a')
+    a.href = `/__export/${id}.pdf?name=${encodeURIComponent(filename)}`
+    a.target = '_blank'
+    a.rel = 'noopener'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
     return
   }
 

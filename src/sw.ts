@@ -52,11 +52,25 @@ self.addEventListener('fetch', (event: FetchEvent) => {
     return
   }
 
+  // HTTP header values must be ASCII (ByteString) — the Response
+  // constructor throws on anything outside that range, which is exactly
+  // what happened for pattern names containing Cyrillic. `name` arrives
+  // already percent-encoded (see exportPdf.ts), so it's ASCII-safe as-is
+  // for the RFC 5987 `filename*` form; the plain `filename` fallback
+  // (for older clients) gets a decoded-then-ASCII-sanitized copy.
+  const encodedName = url.searchParams.get('name') ?? 'pattern.pdf'
+  let asciiName = 'pattern.pdf'
+  try {
+    asciiName = decodeURIComponent(encodedName).replace(/[^\x20-\x7e]/g, '_') || 'pattern.pdf'
+  } catch {
+    // Malformed percent-encoding — fall back to the default name.
+  }
+
   event.respondWith(
     new Response(blob, {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${decodeURIComponent(url.searchParams.get('name') ?? 'pattern.pdf')}"`,
+        'Content-Disposition': `attachment; filename="${asciiName}"; filename*=UTF-8''${encodedName}`,
         'Cache-Control': 'no-store',
       },
     }),
