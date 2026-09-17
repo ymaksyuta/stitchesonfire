@@ -38,5 +38,10 @@
   "glyphVariant.cross": "Крестик",
   "editor.chooseDesign": "Выбрать обозначение",
   "editor.legend": "Легенда",
-  "editor.showSequence": "Показать нить"
+  "editor.showSequence": "Показать нить",
+  "info.title": "О приложении",
+  "info.brief": "«Пылкие Петельки» — редактор схем вязания крючком для телефона. Создавайте, редактируйте и экспортируйте схемы полностью офлайн.",
+  "info.github": "Исходный код на GitHub",
+  "info.version": "Версия {{hash}} \u00b7 {{date}}",
+  "info.close": "Закрыть"
 }

@@ -3,6 +3,7 @@ import { StitchGrid } from './features/editor/StitchGrid'
 import { StitchPalette } from './features/editor/StitchPalette'
 import { usePatternStore } from './store/patternStore'
 import { AppMenu } from './components/AppMenu'
+import { InfoButton } from './components/InfoButton'
 import { LanguageSwitcher } from './components/LanguageSwitcher'
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
     <div className="flex h-full flex-col bg-zinc-100">
       <header className="flex items-center gap-2 border-b border-zinc-200 bg-white px-3 py-2">
         <AppMenu />
+        <InfoButton />
         <input
           value={pattern.name}
           onChange={(e) => setPatternName(e.target.value)}

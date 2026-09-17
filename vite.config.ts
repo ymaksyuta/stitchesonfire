@@ -1,9 +1,27 @@
 import { defineConfig } from 'vite'
+import { execSync } from 'node:child_process'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+function gitInfo(cmd: string, fallback: string): string {
+  try {
+    return execSync(cmd).toString().trim()
+  } catch {
+    // Not in a git checkout (e.g. some CI export) — don't fail the build.
+    return fallback
+  }
+}
+
+const commitHash = gitInfo('git rev-parse --short HEAD', 'unknown')
+// %cI = committer date, strict ISO 8601 — stable across git versions/locales.
+const commitDate = gitInfo('git log -1 --format=%cI', '')
+
 export default defineConfig({
+  define: {
+    __COMMIT_HASH__: JSON.stringify(commitHash),
+    __COMMIT_DATE__: JSON.stringify(commitDate),
+  },
   plugins: [
     react(),
     tailwindcss(),
