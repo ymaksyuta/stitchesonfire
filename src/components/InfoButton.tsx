@@ -19,13 +19,9 @@ export function InfoButton() {
         onClick={() => setOpen(true)}
         aria-label={t('info.title')}
         aria-expanded={open}
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-zinc-300 text-zinc-700"
+        className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md border border-zinc-300"
       >
-        <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor">
-          <circle cx="10" cy="10" r="8.2" fill="none" stroke="currentColor" strokeWidth="1.6" />
-          <circle cx="10" cy="6.2" r="1.1" />
-          <rect x="9.1" y="8.6" width="1.8" height="6" rx="0.6" />
-        </svg>
+        <img src="/favicon.svg" alt="" className="h-6 w-6 rounded-[5px]" />
       </button>
 
       {open && (

@@ -107,6 +107,7 @@ export function exportPatternToPdf(
   pattern: Pattern,
   chartCanvas: HTMLCanvasElement,
   labels: ExportLabels,
+  deliverTo?: Window | null,
 ) {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' })
   const pageWidth = doc.internal.pageSize.getWidth()
@@ -158,28 +159,38 @@ export function exportPatternToPdf(
     }
   }
 
-  saveBlob(doc.output('blob'), `${pattern.name || 'pattern'}.pdf`)
+  saveBlob(doc.output('blob'), `${pattern.name || 'pattern'}.pdf`, deliverTo)
 }
 
 /**
- * Trigger a file download directly, instead of relying on jsPDF's built-in
+ * Trigger a file download, instead of relying on jsPDF's built-in
  * `doc.save()`. That helper defers its click via `setTimeout` and dispatches
  * it on an `<a>` never attached to the DOM — fine in most browsers, but it
  * burns through the tap's user-activation window by the time it fires. That
  * combined with being several `await`s removed from the original click
  * handler (clearing selection, dynamic-importing this module) is enough for
  * an installed Firefox PWA window to silently drop the download, even
- * though the same window works fine as a regular browser tab. Doing it
- * synchronously with an attached anchor avoids that gap.
+ * though the same window works fine as a regular browser tab.
+ *
+ * A Firefox app window also appears to ignore the `download` attribute
+ * outright rather than just being timing-sensitive — clicking the anchor
+ * navigates the app itself to the `blob:` URL (which it can't render,
+ * producing a blank/black screen) instead of downloading. `deliverTo`, when
+ * provided, points at a real, separate browser tab (opened synchronously
+ * from the click, before this async work, to dodge popup blockers) where
+ * the same trick is known to work, so the download happens there instead of
+ * in the confined app window.
  */
-function saveBlob(blob: Blob, filename: string) {
+function saveBlob(blob: Blob, filename: string, deliverTo?: Window | null) {
+  const target = deliverTo && !deliverTo.closed ? deliverTo : window
+  const doc = target.document
   const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
+  const a = doc.createElement('a')
   a.href = url
   a.download = filename
   a.rel = 'noopener'
-  document.body.appendChild(a)
+  doc.body.appendChild(a)
   a.click()
-  document.body.removeChild(a)
+  doc.body.removeChild(a)
   setTimeout(() => URL.revokeObjectURL(url), 40_000)
 }

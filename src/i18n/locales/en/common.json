@@ -3,6 +3,7 @@
   "editor.newPattern": "New pattern",
   "editor.save": "Save",
   "editor.export": "Export",
+  "editor.exporting": "Preparing your download\u2026",
   "editor.saved": "Saved",
   "editor.load": "Load",
   "editor.delete": "Delete",
