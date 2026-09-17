@@ -36,11 +36,33 @@ self.addEventListener('activate', () => self.clients.claim())
  * why "export expired" could still fire even though the SW correctly
  * received the blob moments earlier. Cache Storage persists across a
  * worker restart the same way IndexedDB would.
+ *
+ * Entries are NOT deleted on first fetch match: Firefox for Android can
+ * send a HEAD request to check metadata before the real GET, and
+ * deleting on that first hit would 404 the GET right behind it — which
+ * looked exactly like "export expired" recurring even with the blob
+ * correctly stored. Instead, stale entries (by a recorded creation time)
+ * are pruned whenever a new export comes in.
  */
 const EXPORT_CACHE = 'pdf-export-v1'
+const EXPORT_TTL_MS = 10 * 60 * 1000
 
 function exportDataKey(id: string) {
   return `/__export-data/${id}`
+}
+
+async function pruneExpiredExports(cache: Cache) {
+  const now = Date.now()
+  const requests = await cache.keys()
+  await Promise.all(
+    requests.map(async (request) => {
+      const cached = await cache.match(request)
+      const created = Number(cached?.headers.get('X-Export-Created') ?? 0)
+      if (!created || now - created > EXPORT_TTL_MS) {
+        await cache.delete(request)
+      }
+    }),
+  )
 }
 
 self.addEventListener('message', (event: ExtendableMessageEvent) => {
@@ -49,10 +71,17 @@ self.addEventListener('message', (event: ExtendableMessageEvent) => {
 
   const port = event.ports[0]
   event.waitUntil(
-    caches
-      .open(EXPORT_CACHE)
-      .then((cache) => cache.put(exportDataKey(data.id), new Response(data.blob as Blob)))
-      .then(() => port?.postMessage({ type: 'export-pdf-ack' })),
+    (async () => {
+      const cache = await caches.open(EXPORT_CACHE)
+      await pruneExpiredExports(cache)
+      await cache.put(
+        exportDataKey(data.id),
+        new Response(data.blob as Blob, {
+          headers: { 'X-Export-Created': String(Date.now()) },
+        }),
+      )
+      port?.postMessage({ type: 'export-pdf-ack' })
+    })(),
   )
 })
 
@@ -66,13 +95,11 @@ self.addEventListener('fetch', (event: FetchEvent) => {
   event.respondWith(
     (async () => {
       const cache = await caches.open(EXPORT_CACHE)
-      const key = exportDataKey(id)
-      const cached = await cache.match(key)
+      const cached = await cache.match(exportDataKey(id))
       if (!cached) {
         return new Response('Export expired, please try again.', { status: 404 })
       }
       const blob = await cached.blob()
-      await cache.delete(key)
 
       // HTTP header values must be ASCII (ByteString) — the Response
       // constructor throws on anything outside that range, which is
@@ -80,18 +107,27 @@ self.addEventListener('fetch', (event: FetchEvent) => {
       // `name` arrives already percent-encoded (see exportPdf.ts), so
       // it's ASCII-safe as-is for the RFC 5987 `filename*` form; the
       // plain `filename` fallback (for older clients) gets a
-      // decoded-then-ASCII-sanitized copy.
+      // decoded-then-ASCII-sanitized, quote-escaped copy.
       const encodedName = url.searchParams.get('name') ?? 'pattern.pdf'
       let asciiName = 'pattern.pdf'
       try {
-        asciiName = decodeURIComponent(encodedName).replace(/[^\x20-\x7e]/g, '_') || 'pattern.pdf'
+        asciiName =
+          decodeURIComponent(encodedName)
+            .replace(/[^\x20-\x7e]/g, '_')
+            .replace(/["\\]/g, '_') || 'pattern.pdf'
       } catch {
         // Malformed percent-encoding — fall back to the default name.
       }
 
       return new Response(blob, {
         headers: {
-          'Content-Type': 'application/pdf',
+          // Deliberately NOT 'application/pdf': Firefox (98+) can choose
+          // to ignore Content-Disposition: attachment specifically for
+          // that content type and try to render the PDF inline instead —
+          // which, in an installed PWA's chrome-less window, has nowhere
+          // to put a PDF viewer UI and just shows blank. A generic binary
+          // type leaves Firefox no option but to download it.
+          'Content-Type': 'application/octet-stream',
           'Content-Disposition': `attachment; filename="${asciiName}"; filename*=UTF-8''${encodedName}`,
           'Cache-Control': 'no-store',
         },

@@ -164,37 +164,54 @@ export async function exportPatternToPdf(
 /**
  * Trigger a file download.
  *
- * The obvious approach — an `<a download>` click on a `blob:` URL — works
- * in a normal tab, but installed Firefox PWA windows appear to ignore the
- * `download` attribute for `blob:` URLs and just navigate the app itself
- * there (which it can't render — a black screen). `window.open()` doesn't
- * reliably help either: per browser vendors' own PWA issue trackers,
- * calling it from inside an installed PWA tends to stay inside the app
- * rather than escaping to a real browser tab, in Firefox and Chromium
- * alike.
+ * First choice: the Web Share API with files. This is the standard,
+ * reliable way to hand a file to the OS from an installed PWA on mobile
+ * (Firefox for Android included) — it opens the native share sheet
+ * ("Save to Files", Drive, etc.), sidestepping the whole class of
+ * download/navigation quirks below entirely, since it's a native OS UI
+ * rather than anything routed through the browser's download machinery.
+ * If the user cancels the sheet deliberately, we leave it at that rather
+ * than also firing a download.
  *
- * What *is* honored everywhere, regardless of the window's chrome, is a
- * real network response carrying `Content-Disposition: attachment` — it's
- * the same mechanism used for downloading any ordinary file from a server.
- * The service worker (see sw.ts) intercepts a same-origin fetch to a
- * matching `/__export/` URL and answers it with the blob and that header.
- * We hand it the blob over a MessageChannel and wait for an ack first, so
- * the fetch can't race ahead of the worker actually having the data.
- *
- * That response still needs somewhere to go. A full `window.location.href`
- * navigation on the app's own document turned out to go nowhere useful in
- * an installed Firefox PWA window (the navigation seems to just get
- * dropped, leaving about:blank) — so instead we click a real, DOM-attached,
- * `target="_blank"` anchor: a new auxiliary browsing context, rather than
- * tearing down the app's own page, which is the same mechanism ordinary
- * "download" links on websites use.
+ * Where that isn't available (most desktop browsers still don't support
+ * sharing files), fall back to a same-origin download response with a
+ * `Content-Disposition: attachment` header — that's honored by the
+ * browser's download manager regardless of the window's chrome, because
+ * it's the same mechanism used for downloading any ordinary file from a
+ * server. The service worker (see sw.ts) intercepts a same-origin fetch
+ * to a matching `/__export/` URL and answers it with the blob and that
+ * header; we hand it the blob over a MessageChannel and wait for an ack
+ * first. The link also carries a `download` attribute as a second,
+ * redundant hint alongside the header — belt and braces, since which one
+ * a given browser actually honors has proven inconsistent — and it's
+ * clicked in the current document (no `target="_blank"`, which turned
+ * out not to reliably escape an installed PWA's window anyway) and left
+ * in the DOM briefly rather than removed immediately, in case the
+ * browser needs it to still be attached when it processes the download.
  *
  * If no service worker is controlling the page yet (e.g. first load
- * before it's finished installing), fall back to a plain `download`
- * anchor on a `blob:` URL in the current document, which is what already
- * works for Chrome's PWA and for regular tabs in either browser.
+ * before it's finished installing), fall back further still to a plain
+ * `download` anchor on a `blob:` URL in the current document.
  */
 async function saveBlob(blob: Blob, filename: string) {
+  const nav = navigator as Navigator & {
+    canShare?: (data: ShareData) => boolean
+    share?: (data: ShareData) => Promise<void>
+  }
+  if (nav.canShare && nav.share) {
+    const file = new File([blob], filename, { type: 'application/pdf' })
+    if (nav.canShare({ files: [file] })) {
+      try {
+        await nav.share({ files: [file], title: filename })
+        return
+      } catch (err) {
+        if ((err as DOMException)?.name === 'AbortError') return // user dismissed the sheet on purpose
+        // Otherwise (e.g. the browser refused because user-activation had
+        // lapsed by the time we got here) fall through to the methods below.
+      }
+    }
+  }
+
   const controller = navigator.serviceWorker?.controller
   if (controller) {
     const id = crypto.randomUUID()
@@ -206,11 +223,11 @@ async function saveBlob(blob: Blob, filename: string) {
     await acked
     const a = document.createElement('a')
     a.href = `/__export/${id}.pdf?name=${encodeURIComponent(filename)}`
-    a.target = '_blank'
-    a.rel = 'noopener'
+    a.download = filename
+    a.style.display = 'none'
     document.body.appendChild(a)
     a.click()
-    document.body.removeChild(a)
+    setTimeout(() => a.remove(), 1_000)
     return
   }
 
