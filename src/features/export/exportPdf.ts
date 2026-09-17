@@ -103,11 +103,10 @@ export interface ExportLabels {
  * Export the current chart (a snapshot of the live canvas) plus a legend
  * of every stitch type actually used, to a downloadable PDF.
  */
-export function exportPatternToPdf(
+export async function exportPatternToPdf(
   pattern: Pattern,
   chartCanvas: HTMLCanvasElement,
   labels: ExportLabels,
-  deliverTo?: Window | null,
 ) {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' })
   const pageWidth = doc.internal.pageSize.getWidth()
@@ -159,38 +158,57 @@ export function exportPatternToPdf(
     }
   }
 
-  saveBlob(doc.output('blob'), `${pattern.name || 'pattern'}.pdf`, deliverTo)
+  await saveBlob(doc.output('blob'), `${pattern.name || 'pattern'}.pdf`)
 }
 
 /**
- * Trigger a file download, instead of relying on jsPDF's built-in
- * `doc.save()`. That helper defers its click via `setTimeout` and dispatches
- * it on an `<a>` never attached to the DOM — fine in most browsers, but it
- * burns through the tap's user-activation window by the time it fires. That
- * combined with being several `await`s removed from the original click
- * handler (clearing selection, dynamic-importing this module) is enough for
- * an installed Firefox PWA window to silently drop the download, even
- * though the same window works fine as a regular browser tab.
+ * Trigger a file download.
  *
- * A Firefox app window also appears to ignore the `download` attribute
- * outright rather than just being timing-sensitive — clicking the anchor
- * navigates the app itself to the `blob:` URL (which it can't render,
- * producing a blank/black screen) instead of downloading. `deliverTo`, when
- * provided, points at a real, separate browser tab (opened synchronously
- * from the click, before this async work, to dodge popup blockers) where
- * the same trick is known to work, so the download happens there instead of
- * in the confined app window.
+ * The obvious approach — an `<a download>` click on a `blob:` URL — works
+ * in a normal tab, but installed Firefox PWA windows appear to ignore the
+ * `download` attribute for `blob:` URLs and just navigate the app itself
+ * there (which it can't render — a black screen). `window.open()` doesn't
+ * reliably help either: per browser vendors' own PWA issue trackers,
+ * calling it from inside an installed PWA tends to stay inside the app
+ * rather than escaping to a real browser tab, in Firefox and Chromium
+ * alike.
+ *
+ * What *is* honored everywhere, regardless of the window's chrome, is a
+ * real network response carrying `Content-Disposition: attachment` — it's
+ * the same mechanism used for downloading any ordinary file from a server,
+ * so the browser's download manager handles it and the current page is
+ * left alone (no navigation away, no black screen). The service worker
+ * (see sw.ts) intercepts a same-origin fetch to a matching `/__export/`
+ * URL and answers it with the blob and that header. We hand it the blob
+ * over a MessageChannel and wait for an ack before navigating, so the
+ * fetch can't race ahead of the worker actually having the data.
+ *
+ * If no service worker is controlling the page yet (e.g. first load
+ * before it's finished installing), fall back to the plain anchor click,
+ * which is what already works for Chrome's PWA and for regular tabs in
+ * either browser.
  */
-function saveBlob(blob: Blob, filename: string, deliverTo?: Window | null) {
-  const target = deliverTo && !deliverTo.closed ? deliverTo : window
-  const doc = target.document
+async function saveBlob(blob: Blob, filename: string) {
+  const controller = navigator.serviceWorker?.controller
+  if (controller) {
+    const id = crypto.randomUUID()
+    const acked = new Promise<void>((resolve) => {
+      const channel = new MessageChannel()
+      channel.port1.onmessage = () => resolve()
+      controller.postMessage({ type: 'export-pdf', id, blob }, [channel.port2])
+    })
+    await acked
+    window.location.href = `/__export/${id}.pdf?name=${encodeURIComponent(filename)}`
+    return
+  }
+
   const url = URL.createObjectURL(blob)
-  const a = doc.createElement('a')
+  const a = document.createElement('a')
   a.href = url
   a.download = filename
   a.rel = 'noopener'
-  doc.body.appendChild(a)
+  document.body.appendChild(a)
   a.click()
-  doc.body.removeChild(a)
+  document.body.removeChild(a)
   setTimeout(() => URL.revokeObjectURL(url), 40_000)
 }

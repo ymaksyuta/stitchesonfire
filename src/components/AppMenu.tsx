@@ -46,18 +46,6 @@ export function AppMenu() {
   }
 
   const handleExport = async () => {
-    // Must happen synchronously, before any `await`, or the popup blocker
-    // eats it — see exportPdf.ts's saveBlob for why we need a real tab at
-    // all (Firefox app windows silently swallow the download attribute).
-    const needsRealTab =
-      /firefox/i.test(navigator.userAgent) &&
-      window.matchMedia('(display-mode: standalone)').matches
-    const deliveryTab = needsRealTab ? window.open('', '_blank') : null
-    if (deliveryTab) {
-      deliveryTab.document.title = t('editor.exporting')
-      deliveryTab.document.body.textContent = t('editor.exporting')
-    }
-
     const { canvasEl, selectedStitchIds } = usePatternStore.getState()
     if (!canvasEl) return
 
@@ -71,22 +59,17 @@ export function AppMenu() {
     // Loaded on demand — jsPDF pulls in a fair amount of code that most
     // sessions never need.
     const { exportPatternToPdf } = await import('../features/export/exportPdf')
-    exportPatternToPdf(
-      pattern,
-      canvasEl,
-      {
-        title: pattern.name || t('editor.untitled'),
-        legendTitle: t('editor.legend'),
-        stitchNames: {
-          chain: t('stitch.chain'),
-          single: t('stitch.single'),
-          double: t('stitch.double'),
-          slipStitch: t('stitch.slipStitch'),
-        },
-        countLabel: (count) => `\u00d7${count}`,
+    await exportPatternToPdf(pattern, canvasEl, {
+      title: pattern.name || t('editor.untitled'),
+      legendTitle: t('editor.legend'),
+      stitchNames: {
+        chain: t('stitch.chain'),
+        single: t('stitch.single'),
+        double: t('stitch.double'),
+        slipStitch: t('stitch.slipStitch'),
       },
-      deliveryTab,
-    )
+      countLabel: (count) => `\u00d7${count}`,
+    })
 
     if (selectedStitchIds.length > 0) {
       usePatternStore.setState({ selectedStitchIds })
