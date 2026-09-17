@@ -158,5 +158,28 @@ export function exportPatternToPdf(
     }
   }
 
-  doc.save(`${pattern.name || 'pattern'}.pdf`)
+  saveBlob(doc.output('blob'), `${pattern.name || 'pattern'}.pdf`)
+}
+
+/**
+ * Trigger a file download directly, instead of relying on jsPDF's built-in
+ * `doc.save()`. That helper defers its click via `setTimeout` and dispatches
+ * it on an `<a>` never attached to the DOM — fine in most browsers, but it
+ * burns through the tap's user-activation window by the time it fires. That
+ * combined with being several `await`s removed from the original click
+ * handler (clearing selection, dynamic-importing this module) is enough for
+ * an installed Firefox PWA window to silently drop the download, even
+ * though the same window works fine as a regular browser tab. Doing it
+ * synchronously with an attached anchor avoids that gap.
+ */
+function saveBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.rel = 'noopener'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 40_000)
 }
