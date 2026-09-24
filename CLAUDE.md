@@ -220,8 +220,19 @@ Editing rules (`src/store/patternStore.ts`), by design, not by accident:
     Sequence line recolored to plain gray with its own brightness
     control (`sequenceBrightness`/`SequenceToggle.tsx`, mirrors
     `GuideToggle.tsx`), replacing the old direction-coded blue/orange.
-    UI for the new entities (anchors editor, Thread/Layer management)
-    not started yet — types + rendering only so far.
+15. Stitch-properties UI ✅: `StitchProperties.tsx`, shown in the footer
+    below the palette whenever there's a selection. Side toggle (flips
+    the whole selection's `side`), marker toggle (bright-badge flag),
+    thread picker (swatch + name, click to assign the selection; each row
+    has an inline editor for name + all 4 `ThreadColors`; "+ Add thread"
+    appends one with default colors), layer picker (name, click to
+    assign; inline rename; "+ Add layer" appends a default rectangular
+    grid layer — grid-type editing itself still not built). All backed by
+    new store actions: `toggleSelectedSide`/`toggleSelectedMarker`/
+    `setSelectedThread`/`setSelectedLayer`/`addThread`/`renameThread`/
+    `setThreadColor`/`addLayer`/`renameLayer` — every one applies to the
+    whole current selection, not just the last-selected stitch. Groups
+    and the anchor editor (loop/post-side/offset UI) are still not built.
 
 ## Known issues
 - "More stitch types" popup: toggling a row *on* closes the popup;
