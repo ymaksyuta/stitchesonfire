@@ -38,7 +38,7 @@ export function LanguageSwitcher() {
             aria-hidden="true"
             tabIndex={-1}
             onClick={() => setOpen(false)}
-            className="fixed inset-0 z-30 cursor-default"
+            className="fixed inset-0 z-30 cursor-default touch-none"
           />
           <div
             role="listbox"

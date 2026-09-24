@@ -46,7 +46,7 @@ export function GuideToggle() {
             aria-hidden="true"
             tabIndex={-1}
             onClick={() => setOpen(false)}
-            className="fixed inset-0 z-30 cursor-default"
+            className="fixed inset-0 z-30 cursor-default touch-none"
           />
           <div className="absolute bottom-full left-1/2 z-40 mb-2 w-36 -translate-x-1/2 rounded-md border border-zinc-200 bg-white p-3 shadow-lg">
             <p className="mb-1 text-xs text-zinc-500 select-none">{t('editor.gridBrightness')}</p>

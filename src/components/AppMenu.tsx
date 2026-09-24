@@ -99,7 +99,7 @@ export function AppMenu() {
             aria-hidden="true"
             tabIndex={-1}
             onClick={() => setOpen(false)}
-            className="fixed inset-0 z-30 cursor-default"
+            className="fixed inset-0 z-30 cursor-default touch-none"
           />
           <div className="absolute left-0 top-full z-40 mt-1 w-64 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg">
             <button

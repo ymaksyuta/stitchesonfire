@@ -175,12 +175,9 @@ export function StitchPalette() {
                   setPickerOpen(false)
                   setVariantPickerFor(null)
                 }}
-                className="fixed inset-0 z-30 cursor-default"
+                className="fixed inset-0 z-30 cursor-default touch-none"
               />
               <div className="absolute bottom-full left-0 z-40 mb-1 w-56 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg">
-                <p className="px-3 py-1.5 text-xs text-zinc-400">
-                  {t('editor.moreStitchTypes')}
-                </p>
                 {ALL_STITCH_TYPES.map((type) => {
                   const visible = visibleStitchTypes.includes(type)
                   const variants = GLYPH_VARIANTS[type]
@@ -188,10 +185,9 @@ export function StitchPalette() {
                   const selectedVariantId = pattern.glyphVariants?.[type] ?? variants[0].id
 
                   const onRowPointerDown = () => {
-                    if (!hasVariants) return
                     if (rowLongPressTimer.current) clearTimeout(rowLongPressTimer.current)
                     rowLongPressTimer.current = setTimeout(() => {
-                      setVariantPickerFor(type)
+                      if (hasVariants) setVariantPickerFor(type)
                       rowLongPressTimer.current = null
                     }, LONG_PRESS_MS)
                   }
@@ -232,9 +228,6 @@ export function StitchPalette() {
                         </span>
                         <StitchIcon type={type} variantId={selectedVariantId} />
                         <span className="flex-1">{t(LABELS[type])}</span>
-                        {hasVariants && (
-                          <span className="text-xs text-zinc-400">{t('editor.chooseDesign')}</span>
-                        )}
                       </button>
 
                       {variantPickerFor === type && (
@@ -243,7 +236,7 @@ export function StitchPalette() {
                             aria-hidden="true"
                             tabIndex={-1}
                             onClick={() => setVariantPickerFor(null)}
-                            className="fixed inset-0 z-40 cursor-default"
+                            className="fixed inset-0 z-40 cursor-default touch-none"
                           />
                           <div className="absolute left-full top-0 z-50 ml-1 w-44 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg">
                             {variants.map((variant) => (
@@ -301,7 +294,7 @@ export function StitchPalette() {
                 aria-hidden="true"
                 tabIndex={-1}
                 onClick={() => setColorOpen(false)}
-                className="fixed inset-0 z-30 cursor-default"
+                className="fixed inset-0 z-30 cursor-default touch-none"
               />
               <div
                 role="listbox"

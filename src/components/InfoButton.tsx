@@ -30,7 +30,7 @@ export function InfoButton() {
             aria-hidden="true"
             tabIndex={-1}
             onClick={() => setOpen(false)}
-            className="fixed inset-0 z-40 cursor-default bg-black/30"
+            className="fixed inset-0 z-40 cursor-default touch-none bg-black/30"
           />
           <div
             role="dialog"
