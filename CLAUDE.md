@@ -6,7 +6,42 @@ CrochetCharts, but in the browser, offline-capable, installable). Each
 stitch is its own free-form position anchor — see "Data model" below. A
 light guideline grid still exists for visual/snap reference only.
 
-## Non-negotiables
+## Session memory
+Sessions on claude.ai are bound to this project's own memory store — a
+set of files separate from this repo, persisting across chats there.
+**A session in this repo without that store (Claude Code, a fresh
+checkout, any non-claude.ai environment) only ever sees this file** — so
+this file is the authoritative fallback, not just a convenience copy.
+Keep it truthful on its own, independent of the memory store.
+
+For a claude.ai session that does have the memory store, read in this
+order at session start, stopping once you have enough context for the
+task:
+1. `index.md` — entry point, one line, points at the rest.
+2. `overview.md` — current state, stack, what's next.
+3. `learnings-and-workflow.md` — the session workflow (PAT push process,
+   never storing the token), hard-won bugs/gotchas, a dated
+   implementation-progress log, and a "Known issues" list to pick up.
+4. `architecture-model.md` — the full target architecture (topological
+   model, anchors, groups, turning chains) when working on data-model or
+   rendering-logic tasks specifically.
+5. `interaction-tools.md`, `3d-relaxation.md`, `i18n-glossary.md` — later
+   roadmap phases (touch/chain-arc tools, 3D preview, i18n), only when
+   the task actually touches one of them.
+
+Keep both in sync as you work, not just at the end of a session:
+- After landing a change, append a dated note to
+  `learnings-and-workflow.md`'s progress log (what changed, the commit,
+  pushed or not) and update its "Known issues" list.
+- When a design decision is made or revised, update `architecture-model.md`
+  (or the relevant later-phase file) to match — it's meant to be the
+  current authoritative spec, not a historical record of the discussion.
+- Mirror any change to the actual data model or roadmap status into this
+  file's own "Data model" and "Roadmap" sections in the same session —
+  this file drifting out of sync with the memory store is exactly what
+  caused a prior session to miss already-implemented work.
+
+
 - **License: MIT.** Do not copy code from CrochetCharts (GPLv3) — UX/feature
   reference only, never source.
 - **Mobile-first.** Design and test touch interactions before desktop.
