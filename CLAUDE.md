@@ -39,24 +39,47 @@ src/
 
 ## Data model (`src/types/pattern.ts`)
 A stitch is its own position anchor — there is no separate node entity:
-- `Stitch { id, type, color?, pos: {x,y}, attachments: (string|null)[] }`.
+- `Stitch { id, type, color?, pos: {x,y}, anchors: (Anchor|null)[], thread, layer, side, marker?, size? }`.
   `pos` is where the glyph is drawn; it never moves except by an explicit
-  geometric drag. `attachments[i]` is the id of the stitch attachment
-  point `i` hooks into (or null). `ATTACHMENT_ARITY[type]` says how many
-  attachment points a type has (all current types: 0 or 1). Several
-  stitches pointing at the same target id is a **fan-out** (shared base);
-  a stitch with several non-null attachments is a **cluster/decrease**
+  geometric drag. `anchors[i]` is what attachment point `i` hooks into —
+  a polymorphic `Anchor` (`crown` w/ loop both/flo/blo, `post` front/back,
+  `magicRing`, `chainSpace` w/ chainIds+offset), not just a raw stitch id,
+  so the target kind is explicit at the type level. `ATTACHMENT_ARITY[type]`
+  says how many anchor slots a type has (all current types: 0 or 1).
+  Several stitches anchoring the same target is a **fan-out** (shared
+  base); a stitch with several non-null anchors is a **cluster/decrease**
   (arity 2+, none implemented yet but the model already supports it) —
   both are just entries in this array, no separate structure for either.
+  `thread`, `layer`, and `side` are all required. `thread`/`layer` are
+  independent axes (thread = working order + color scheme, layer = grid
+  type/points — see below); `side` (right/wrong) is independent of row
+  grouping and selects which of the owning `Thread`'s four colors the
+  stitch draws with (see `Thread` below). `marker` is a display-only
+  badge flag (no row-counting semantics). `size` overrides the thread's
+  default turning-chain loop size for this stitch.
+- `Thread { id, name?, colors: {activeRight, activeWrong, passiveRight,
+  passiveWrong}, turningLoopSize? }` — a yarn strand. A pattern can have
+  more than one. "Active" = the thread of the current (last-selected)
+  stitch; every other thread is "passive". A stitch is drawn with its
+  thread's color for its `side`; a stitch's own `color` only overrides
+  that while its thread is the active one — on a passive thread the
+  thread color always wins.
+- `Layer { id, grid }` — supplies a rectangular or radial grid for
+  guideline/snap points only; never a source of truth for `pos`.
+- `Group` (chain-arc / composite-motif / repeat-with-instancing) — not
+  wired into any UI yet, types exist in `pattern.ts`.
 - `Pattern.sequence: string[]` — the order the thread is actually worked
-  in, independent of `attachments` (a stitch's structural connection).
+  in, independent of `anchors` (a stitch's structural connection).
   Editing structure never reorders the thread and vice versa.
 - `Pattern.rows/cols` only size the guideline grid + canvas extent, not a
   hard cell grid.
+- New/loaded patterns are defensively normalized (`normalizePattern` in
+  `patternStore.ts`) — old saved patterns missing threads/layers/groups
+  or per-stitch thread/layer/side get sane defaults backfilled.
 
 Editing rules (`src/store/patternStore.ts`), by design, not by accident:
 - Moving a stitch's `pos` (`moveStitchesBy`/`finalizeStitchPos`) never
-  moves anything attached to it — an attachment's leg is drawn fresh from
+  moves anything attached to it — an anchor's leg is drawn fresh from
   the current `pos` on every render, so deformation is automatic and
   never cascades: nothing has to explicitly "not move" the other end.
 - A brand-new stitch is inserted into `sequence` right after the current
@@ -187,6 +210,26 @@ Editing rules (`src/store/patternStore.ts`), by design, not by accident:
     image (`textToImage`/`drawText` in `exportPdf.ts`), never
     `doc.text()` directly.
 13. Beta + feedback loop
+14. Topological/anchor-based rework ✅: `attachments` (raw string ids)
+    replaced by polymorphic `anchors` (`Anchor` union: crown/post/
+    magicRing/chainSpace); new `Thread`/`Layer`/`Group` entities;
+    `thread`/`layer`/`side` made required on `Stitch`; `Thread` gained a
+    4-color scheme (active/passive × right/wrong) driving stitch color,
+    with a stitch's own `color` overriding only on the active thread;
+    `marker` now renders as a bright badge. See "Data model" above.
+    Sequence line recolored to plain gray with its own brightness
+    control (`sequenceBrightness`/`SequenceToggle.tsx`, mirrors
+    `GuideToggle.tsx`), replacing the old direction-coded blue/orange.
+    UI for the new entities (anchors editor, Thread/Layer management)
+    not started yet — types + rendering only so far.
+
+## Known issues
+- "More stitch types" popup: toggling a row *on* closes the popup;
+  toggling one *off* does not — should be symmetric either way.
+- Dragging while a popup is open still pans/drags the whole app
+  interface. A `touch-none` fix was tried on every full-screen
+  click-outside overlay button but did not resolve it — needs another
+  look at the actual cause.
 
 ## Icon regeneration
 Source is `src-icon/icon.svg`. Regenerate PNGs with:
