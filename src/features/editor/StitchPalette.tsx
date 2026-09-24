@@ -8,6 +8,7 @@ import { SequenceToggle } from './SequenceToggle'
 import { ZoomControl } from './ZoomControl'
 import { StitchIcon } from './StitchIcon'
 import { ToolPalette } from './ToolPalette'
+import { StitchProperties } from './StitchProperties'
 
 const LABELS: Record<StitchType, string> = {
   chain: 'stitch.chain',
@@ -330,6 +331,8 @@ export function StitchPalette() {
         <SequenceToggle />
         <ZoomControl />
       </div>
+
+      <StitchProperties />
 
       {dragPreview && (
         <div

@@ -396,3 +396,50 @@ describe('zoom', () => {
     expect(usePatternStore.getState().zoom).toBe(0.5)
   })
 })
+
+describe('stitch properties: thread/layer/side/marker', () => {
+  it('flips side and marker for the whole selection', () => {
+    const { beginPaletteDrag, endPaletteDrag } = usePatternStore.getState()
+    beginPaletteDrag('single', undefined, 36, 36)
+    endPaletteDrag()
+    const stitch = usePatternStore.getState().pattern.stitches[0]
+    usePatternStore.getState().selectOnly(stitch.id)
+
+    usePatternStore.getState().toggleSelectedSide()
+    expect(usePatternStore.getState().pattern.stitches[0].side).toBe('wrong')
+    usePatternStore.getState().toggleSelectedSide()
+    expect(usePatternStore.getState().pattern.stitches[0].side).toBe('right')
+
+    expect(usePatternStore.getState().pattern.stitches[0].marker).toBeFalsy()
+    usePatternStore.getState().toggleSelectedMarker()
+    expect(usePatternStore.getState().pattern.stitches[0].marker).toBe(true)
+    usePatternStore.getState().toggleSelectedMarker()
+    expect(usePatternStore.getState().pattern.stitches[0].marker).toBe(false)
+  })
+
+  it('adds a thread/layer and reassigns the selection to it', () => {
+    const { beginPaletteDrag, endPaletteDrag } = usePatternStore.getState()
+    beginPaletteDrag('single', undefined, 36, 36)
+    endPaletteDrag()
+    const stitch = usePatternStore.getState().pattern.stitches[0]
+    usePatternStore.getState().selectOnly(stitch.id)
+
+    usePatternStore.getState().addThread()
+    const newThread = usePatternStore.getState().pattern.threads[1]
+    expect(newThread).toBeDefined()
+    usePatternStore.getState().setSelectedThread(newThread.id)
+    expect(usePatternStore.getState().pattern.stitches[0].thread).toBe(newThread.id)
+
+    usePatternStore.getState().renameThread(newThread.id, 'Contrast')
+    usePatternStore.getState().setThreadColor(newThread.id, 'activeRight', '#ff0000')
+    const updatedThread = usePatternStore.getState().pattern.threads[1]
+    expect(updatedThread.name).toBe('Contrast')
+    expect(updatedThread.colors.activeRight).toBe('#ff0000')
+
+    usePatternStore.getState().addLayer()
+    const newLayer = usePatternStore.getState().pattern.layers[1]
+    expect(newLayer).toBeDefined()
+    usePatternStore.getState().setSelectedLayer(newLayer.id)
+    expect(usePatternStore.getState().pattern.stitches[0].layer).toBe(newLayer.id)
+  })
+})

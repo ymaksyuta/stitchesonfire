@@ -241,6 +241,17 @@ interface PatternState {
   reset: (rows?: number, cols?: number) => void
   resizePattern: (rows: number, cols: number) => void
   loadPattern: (pattern: Pattern) => void
+
+  // Selected-stitch property editing (thread/layer/side/marker).
+  toggleSelectedSide: () => void
+  toggleSelectedMarker: () => void
+  setSelectedThread: (threadId: string) => void
+  setSelectedLayer: (layerId: string) => void
+  addThread: () => void
+  renameThread: (threadId: string, name: string) => void
+  setThreadColor: (threadId: string, key: keyof ThreadColors, value: string) => void
+  addLayer: () => void
+  renameLayer: (layerId: string, name: string) => void
 }
 
 export const usePatternStore = create<PatternState>((set, get) => {
@@ -609,6 +620,129 @@ export const usePatternStore = create<PatternState>((set, get) => {
         pattern: {
           ...state.pattern,
           glyphVariants: { ...state.pattern.glyphVariants, [type]: variantId },
+          updatedAt: Date.now(),
+        },
+      })),
+
+    toggleSelectedSide: () =>
+      set((state) => {
+        const ids = new Set(state.selectedStitchIds)
+        if (ids.size === 0) return {}
+        return {
+          pattern: {
+            ...state.pattern,
+            stitches: state.pattern.stitches.map((s) =>
+              ids.has(s.id) ? { ...s, side: s.side === 'right' ? 'wrong' : 'right' } : s,
+            ),
+            updatedAt: Date.now(),
+          },
+        }
+      }),
+
+    toggleSelectedMarker: () =>
+      set((state) => {
+        const ids = new Set(state.selectedStitchIds)
+        if (ids.size === 0) return {}
+        const selected = state.pattern.stitches.filter((s) => ids.has(s.id))
+        const nextMarker = !selected.every((s) => s.marker)
+        return {
+          pattern: {
+            ...state.pattern,
+            stitches: state.pattern.stitches.map((s) =>
+              ids.has(s.id) ? { ...s, marker: nextMarker } : s,
+            ),
+            updatedAt: Date.now(),
+          },
+        }
+      }),
+
+    setSelectedThread: (threadId) =>
+      set((state) => {
+        const ids = new Set(state.selectedStitchIds)
+        if (ids.size === 0) return {}
+        return {
+          pattern: {
+            ...state.pattern,
+            stitches: state.pattern.stitches.map((s) =>
+              ids.has(s.id) ? { ...s, thread: threadId } : s,
+            ),
+            updatedAt: Date.now(),
+          },
+        }
+      }),
+
+    setSelectedLayer: (layerId) =>
+      set((state) => {
+        const ids = new Set(state.selectedStitchIds)
+        if (ids.size === 0) return {}
+        return {
+          pattern: {
+            ...state.pattern,
+            stitches: state.pattern.stitches.map((s) =>
+              ids.has(s.id) ? { ...s, layer: layerId } : s,
+            ),
+            updatedAt: Date.now(),
+          },
+        }
+      }),
+
+    addThread: () =>
+      set((state) => {
+        const thread: Thread = {
+          id: crypto.randomUUID(),
+          name: `Thread ${state.pattern.threads.length + 1}`,
+          colors: { ...DEFAULT_THREAD_COLORS },
+        }
+        return {
+          pattern: {
+            ...state.pattern,
+            threads: [...state.pattern.threads, thread],
+            updatedAt: Date.now(),
+          },
+        }
+      }),
+
+    renameThread: (threadId, name) =>
+      set((state) => ({
+        pattern: {
+          ...state.pattern,
+          threads: state.pattern.threads.map((t) => (t.id === threadId ? { ...t, name } : t)),
+          updatedAt: Date.now(),
+        },
+      })),
+
+    setThreadColor: (threadId, key, value) =>
+      set((state) => ({
+        pattern: {
+          ...state.pattern,
+          threads: state.pattern.threads.map((t) =>
+            t.id === threadId ? { ...t, colors: { ...t.colors, [key]: value } } : t,
+          ),
+          updatedAt: Date.now(),
+        },
+      })),
+
+    addLayer: () =>
+      set((state) => {
+        const layer: Layer = {
+          id: crypto.randomUUID(),
+          name: `Layer ${state.pattern.layers.length + 1}`,
+          grid: { kind: 'rectangular', stepX: 1, stepY: 1 },
+        }
+        return {
+          pattern: {
+            ...state.pattern,
+            layers: [...state.pattern.layers, layer],
+            updatedAt: Date.now(),
+          },
+        }
+      }),
+
+    renameLayer: (layerId, name) =>
+      set((state) => ({
+        pattern: {
+          ...state.pattern,
+          layers: state.pattern.layers.map((l) => (l.id === layerId ? { ...l, name } : l)),
           updatedAt: Date.now(),
         },
       })),
