@@ -1,6 +1,6 @@
 import { useRef, useEffect, useCallback, useState } from 'react'
 import { usePatternStore, type Tool } from '../../store/patternStore'
-import type { Pattern, Stitch } from '../../types/pattern'
+import type { Pattern, Stitch, Thread } from '../../types/pattern'
 import { placeGlyph, averageAttachmentAngle, YARN_OVERS } from './stitchGlyphs'
 import { anchorPosition } from './anchorPosition'
 import {
@@ -17,6 +17,31 @@ const DEFAULT_INK = '#18181b'
 const ACCENT = '#1d4ed8'
 const SEQUENCE_RIGHT = '#93c5fd'
 const SEQUENCE_LEFT = '#fdba74'
+const MARKER_COLOR = '#facc15'
+
+/** A stitch's drawn color: normally whatever its thread defines for its
+ * side (active/passive × right/wrong — see `Thread.colors`); a stitch's
+ * own `color` only takes over while its thread is the active one — a
+ * passive thread's color always wins over a stitch's `color`. Selection
+ * highlight (accent blue) overrides all of it. */
+function resolveStitchColor(
+  stitch: Stitch,
+  thread: Thread | undefined,
+  isActiveThread: boolean,
+  isSelected: boolean,
+) {
+  if (isSelected) return ACCENT
+  const base = thread
+    ? stitch.side === 'right'
+      ? isActiveThread
+        ? thread.colors.activeRight
+        : thread.colors.passiveRight
+      : isActiveThread
+        ? thread.colors.activeWrong
+        : thread.colors.passiveWrong
+    : DEFAULT_INK
+  return isActiveThread && stitch.color ? stitch.color : base
+}
 
 interface LiveHandleDrag {
   stitchId: string
@@ -110,6 +135,7 @@ function draw(
   guideBrightness: number,
   showSequence: boolean,
   liveOverride: LiveHandleDrag | null,
+  activeThreadId: string | null,
 ) {
   const width = pattern.cols * cellSize
   const height = pattern.rows * cellSize
@@ -128,6 +154,7 @@ function draw(
 
   const BG = '#ffffff'
   const stitchesById = new Map(pattern.stitches.map((s) => [s.id, s]))
+  const threadsById = new Map(pattern.threads.map((t) => [t.id, t]))
 
   const sequenceWidth = Math.max(1, cellSize * 0.025)
   const sequenceCasingWidth = sequenceWidth + Math.max(1.5, cellSize * 0.035)
@@ -185,7 +212,12 @@ function draw(
   for (const pass of ['casing', 'color'] as const) {
     for (const { stitch, render } of renders) {
       const isSelected = selectedIds.has(stitch.id)
-      const color = isSelected ? ACCENT : stitch.color ?? DEFAULT_INK
+      const color = resolveStitchColor(
+        stitch,
+        threadsById.get(stitch.thread),
+        stitch.thread === activeThreadId,
+        isSelected,
+      )
       const ticks = YARN_OVERS[stitch.type]
       for (const target of render.targetPositions) {
         if (!target) continue
@@ -211,7 +243,12 @@ function draw(
   for (const pass of ['casing', 'color'] as const) {
     for (const { stitch, render } of renders) {
       const isSelected = selectedIds.has(stitch.id)
-      const color = isSelected ? ACCENT : stitch.color ?? DEFAULT_INK
+      const color = resolveStitchColor(
+        stitch,
+        threadsById.get(stitch.thread),
+        stitch.thread === activeThreadId,
+        isSelected,
+      )
       const w = isSelected ? selectedWidth : normalWidth
 
       if (pass === 'casing') {
@@ -244,6 +281,23 @@ function draw(
         }
       }
     }
+  }
+
+  // Stage 4 — marker badge: a small bright dot layered on top of any
+  // stitch flagged `marker`, so it reads clearly over stage 3's glyph.
+  for (const { stitch, render } of renders) {
+    if (!stitch.marker) continue
+    const bx = render.posPx.x + haloRadius * 0.62
+    const by = render.posPx.y - haloRadius * 0.62
+    const r = Math.max(2, haloRadius * 0.32)
+    ctx.beginPath()
+    ctx.arc(bx, by, r, 0, Math.PI * 2)
+    ctx.fillStyle = BG
+    ctx.fill()
+    ctx.beginPath()
+    ctx.arc(bx, by, r * 0.72, 0, Math.PI * 2)
+    ctx.fillStyle = MARKER_COLOR
+    ctx.fill()
   }
 
   // Attachment handles for the current selection.
@@ -330,6 +384,14 @@ export function StitchGrid() {
     canvas.style.height = `${height}px`
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 
+    // The active thread is whichever thread the current stitch (the
+    // last-selected one) belongs to — it decides both the active/passive
+    // color pair and whether a stitch's own `color` can override it.
+    const currentId = selectedStitchIds[selectedStitchIds.length - 1]
+    const activeThreadId = currentId
+      ? pattern.stitches.find((s) => s.id === currentId)?.thread ?? null
+      : null
+
     draw(
       ctx,
       pattern,
@@ -341,6 +403,7 @@ export function StitchGrid() {
       guideBrightness,
       showSequence,
       liveHandleDrag,
+      activeThreadId,
     )
   }, [
     pattern,

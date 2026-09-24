@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Anchor, Pattern, Stitch, StitchType } from '../types/pattern'
+import type { Anchor, Layer, Pattern, Stitch, StitchType, Thread, ThreadColors } from '../types/pattern'
 import { ATTACHMENT_ARITY, ALL_STITCH_TYPES } from '../types/pattern'
 import {
   BASE_CELL_SIZE,
@@ -12,6 +12,25 @@ import {
 export type Tool = 'add' | 'select' | 'delete' | 'move' | null
 
 const DEFAULT_THREAD_ID = 'default'
+const DEFAULT_LAYER_ID = 'default'
+
+/** Fallback four-color scheme for a thread that doesn't specify its own —
+ * active/passive × right/wrong. Arbitrary but consistently distinguishable;
+ * a pattern's own threads are free to override every entry. */
+const DEFAULT_THREAD_COLORS: ThreadColors = {
+  activeRight: '#18181b',
+  activeWrong: '#71717a',
+  passiveRight: '#93c5fd',
+  passiveWrong: '#fdba74',
+}
+
+function defaultThread(): Thread {
+  return { id: DEFAULT_THREAD_ID, colors: { ...DEFAULT_THREAD_COLORS } }
+}
+
+function defaultLayer(): Layer {
+  return { id: DEFAULT_LAYER_ID, grid: { kind: 'rectangular', stepX: 1, stepY: 1 } }
+}
 
 function emptyPattern(rows: number, cols: number): Pattern {
   const now = Date.now()
@@ -21,8 +40,8 @@ function emptyPattern(rows: number, cols: number): Pattern {
     rows,
     cols,
     stitches: [],
-    threads: [{ id: DEFAULT_THREAD_ID }],
-    layers: [],
+    threads: [defaultThread()],
+    layers: [defaultLayer()],
     groups: [],
     sequence: [],
     createdAt: now,
@@ -33,16 +52,21 @@ function emptyPattern(rows: number, cols: number): Pattern {
 /** Defensive against patterns saved before this rewrite. */
 function normalizePattern(p: Pattern): Pattern {
   const threads = Array.isArray(p.threads) && p.threads.length > 0
-    ? p.threads
-    : [{ id: DEFAULT_THREAD_ID }]
+    ? p.threads.map((t) => (t.colors ? t : { ...t, colors: { ...DEFAULT_THREAD_COLORS } }))
+    : [defaultThread()]
+  const layers = Array.isArray(p.layers) && p.layers.length > 0 ? p.layers : [defaultLayer()]
   const fallbackThreadId = threads[0].id
+  const fallbackLayerId = layers[0].id
   return {
     ...p,
-    stitches: (Array.isArray(p.stitches) ? p.stitches : []).map((s) =>
-      s.threadId ? s : { ...s, threadId: fallbackThreadId },
-    ),
+    stitches: (Array.isArray(p.stitches) ? p.stitches : []).map((s) => ({
+      ...s,
+      thread: s.thread ?? fallbackThreadId,
+      layer: s.layer ?? fallbackLayerId,
+      side: s.side ?? 'right',
+    })),
     threads,
-    layers: Array.isArray(p.layers) ? p.layers : [],
+    layers,
     groups: Array.isArray(p.groups) ? p.groups : [],
     sequence: Array.isArray(p.sequence) ? p.sequence : [],
   }
@@ -247,15 +271,23 @@ export const usePatternStore = create<PatternState>((set, get) => {
       ? { kind: 'crown', targetId: attachTo, loop: 'both' }
       : null
     const anchors = resizeAnchors(attachAnchor ? [attachAnchor] : [], arity)
+    const currentId = selectedStitchIds[selectedStitchIds.length - 1]
+    const prevStitch = currentId ? pattern.stitches.find((s) => s.id === currentId) : undefined
+    // Default side: the first stitch is 'right'; every stitch after that
+    // takes the same left/right read as the sequence-line coloring
+    // (direction from the previous/current stitch) — the user can flip
+    // it explicitly afterwards.
+    const side: Stitch['side'] = !prevStitch || x - prevStitch.pos.x >= 0 ? 'right' : 'wrong'
     const stitch: Stitch = {
       id: crypto.randomUUID(),
       type,
       color,
       pos: { x, y },
       anchors,
-      threadId: pattern.threads[0]?.id ?? DEFAULT_THREAD_ID,
+      thread: pattern.threads[0]?.id ?? DEFAULT_THREAD_ID,
+      layer: pattern.layers[0]?.id ?? DEFAULT_LAYER_ID,
+      side,
     }
-    const currentId = selectedStitchIds[selectedStitchIds.length - 1]
     const insertAt = currentId ? pattern.sequence.indexOf(currentId) + 1 : 0
     const sequence = [...pattern.sequence]
     sequence.splice(insertAt, 0, stitch.id)

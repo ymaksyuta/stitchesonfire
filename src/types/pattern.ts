@@ -68,45 +68,62 @@ export const ATTACHMENT_ARITY: Record<StitchType, number> = {
  * several non-null anchors is how a decrease/cluster reads (one stitch,
  * several bases). Both are just entries in this array.
  *
- * Row/turning-chain semantics are fully explicit for now — nothing is
- * inferred from the graph's shape or from `sequence`. `role`,
- * `directionChange`, and `countsAsStitch` are set directly, by the user or
- * by explicit tool logic.
+ * `marker` is a display-only flag (e.g. for a turning chain) — it carries
+ * no row-counting or graph semantics yet, nothing is inferred from it.
  */
 export interface Stitch {
   id: string
   type: StitchType
-  /** Optional accent color (hex). Falls back to the default ink color. */
+  /** Optional accent color (hex). Falls back to the default ink color.
+   * Not tied to `side` specifically — usable for any future coloring
+   * need too. */
   color?: string
   pos: { x: number; y: number }
   anchors: (Anchor | null)[]
   /** Which thread (yarn strand) this stitch belongs to. */
-  threadId: string
-  /** Which layer's grid this stitch is placed against, if any. */
-  layerId?: string
-  /** Explicit turning-chain role. Only 'turning' is defined for now. */
-  role?: 'turning'
-  /** Explicit marker that this stitch begins a new row/working direction. */
-  directionChange?: boolean
+  thread: string
+  /** Which layer's grid this stitch is placed against. */
+  layer: string
   /**
-   * Only meaningful when `role === 'turning'`. `true`: this turning chain
-   * substitutes for the first working stitch of the row — the next row's
-   * first working stitch enters the second base stitch, and its final
-   * stitch anchors into this turning chain's top chain. `false`: purely
-   * technical — the first working stitch enters the first base stitch and
-   * subsequent rows ignore this turning chain.
+   * Display-only marker (e.g. for a turning chain) — currently a plain
+   * boolean; intended to eventually reference a marker glyph id instead.
+   * Independent of any row/counting logic: it's a visual flag, not a
+   * source of truth for anything structural yet. When true, an extra
+   * bright badge is drawn over the stitch's glyph.
    */
-  countsAsStitch?: boolean
+  marker?: boolean
   /**
    * Overrides the owning thread's default turning-chain loop size
    * (`Thread.turningLoopSize`) for this stitch specifically. Loop size is
    * driven among other things by hook size and can vary across sections
    * of a chart.
    */
-  loopSizeOverride?: number
-  /** Row-shift offset (e.g. a post-stitch row nudging the next row relative
-   * to the previous one). Reserved for future stitch types. */
-  shift?: number
+  size?: number
+  /**
+   * Right-side / wrong-side, independent of row grouping. Selects which
+   * of the owning thread's four colors (see `Thread.colors`) this stitch
+   * draws with. The very first stitch defaults to `'right'`; every
+   * stitch after that defaults from the placement direction relative to
+   * the previous stitch (the same left/right test the sequence-line
+   * coloring uses) — the user can flip it explicitly afterwards.
+   */
+  side: 'right' | 'wrong'
+}
+
+/**
+ * The four colors a thread draws with. "Active" means this is the
+ * thread of the current stitch (the last-selected stitch) — any other
+ * thread present in the pattern is "passive". Independently, each
+ * stitch's own `side` picks the right/wrong half of that pair. A
+ * stitch's `color` may override the resolved color, but only while its
+ * thread is the active one — on a passive thread the thread color always
+ * wins.
+ */
+export interface ThreadColors {
+  activeRight: string
+  activeWrong: string
+  passiveRight: string
+  passiveWrong: string
 }
 
 /**
@@ -117,9 +134,9 @@ export interface Stitch {
 export interface Thread {
   id: string
   name?: string
-  color?: string
+  colors: ThreadColors
   /** Default turning-chain loop size for stitches on this thread, unless
-   * a stitch sets `loopSizeOverride`. */
+   * a stitch sets `size`. */
   turningLoopSize?: number
 }
 
@@ -141,8 +158,9 @@ export type GridType = RectangularGrid | RadialGrid
 
 /**
  * A layer supplies a grid (rectangular or radial) for guideline points and
- * snapping only. It is structurally optional — stitch `pos` is always a
- * free {x,y} and is never derived from a layer's grid coordinates.
+ * snapping only. Every stitch references one, but the grid is never a
+ * source of truth for position — stitch `pos` is always a free {x,y} and
+ * is never derived from a layer's grid coordinates.
  */
 export interface Layer {
   id: string

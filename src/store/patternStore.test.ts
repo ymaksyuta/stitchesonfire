@@ -85,6 +85,38 @@ describe('placing stitches', () => {
   })
 })
 
+describe('stitch thread/layer/side defaults', () => {
+  it('stamps the default thread and layer, and sides the first stitch right', () => {
+    const { beginPaletteDrag, endPaletteDrag } = usePatternStore.getState()
+    beginPaletteDrag('single', undefined, 73, 71)
+    endPaletteDrag()
+    const stitch = usePatternStore.getState().pattern.stitches[0]
+    const { pattern } = usePatternStore.getState()
+    expect(stitch.thread).toBe(pattern.threads[0].id)
+    expect(stitch.layer).toBe(pattern.layers[0].id)
+    expect(stitch.side).toBe('right')
+  })
+
+  it('defaults a later stitch\'s side from its placement direction relative to the current one', () => {
+    const { beginPaletteDrag, endPaletteDrag } = usePatternStore.getState()
+    beginPaletteDrag('single', undefined, 108, 108) // (3,3), becomes current
+    endPaletteDrag()
+
+    beginPaletteDrag('single', undefined, 36, 36) // (1,1) — placed to the left
+    endPaletteDrag()
+    const leftward = usePatternStore.getState().pattern.stitches[1]
+    expect(leftward.side).toBe('wrong')
+
+    // re-select the first stitch as current, then place one to its right
+    const first = usePatternStore.getState().pattern.stitches[0]
+    usePatternStore.getState().selectOnly(first.id)
+    beginPaletteDrag('single', undefined, 180, 180) // (5,5) — placed to the right
+    endPaletteDrag()
+    const rightward = usePatternStore.getState().pattern.stitches[2]
+    expect(rightward.side).toBe('right')
+  })
+})
+
 describe('Add tool sweep', () => {
   it('sweeping over empty guideline points inserts a chain of stitches', () => {
     const { setActiveTool, applyAddAt } = usePatternStore.getState()

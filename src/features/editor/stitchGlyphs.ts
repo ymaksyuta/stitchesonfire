@@ -96,6 +96,17 @@ export const YARN_OVERS: Record<StitchType, number> = {
   double: 1,
 }
 
+/** Row-shift amount per stitch type (e.g. a post-stitch row nudging the
+ * next row relative to the previous one), analogous to YARN_OVERS above.
+ * Reference/informational only for now — no rendering or layout logic
+ * reads this yet; every type defaults to 0 until a shifting type exists. */
+export const STITCH_SHIFT: Record<StitchType, number> = {
+  chain: 0,
+  slipStitch: 0,
+  single: 0,
+  double: 0,
+}
+
 function rotate(p: { x: number; y: number }, rotation: number) {
   const cos = Math.cos(rotation)
   const sin = Math.sin(rotation)
