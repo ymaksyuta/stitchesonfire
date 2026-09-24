@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Pattern, Stitch, StitchType } from '../types/pattern'
+import type { Anchor, Pattern, Stitch, StitchType } from '../types/pattern'
 import { ATTACHMENT_ARITY, ALL_STITCH_TYPES } from '../types/pattern'
 import {
   BASE_CELL_SIZE,
@@ -11,6 +11,8 @@ import {
 
 export type Tool = 'add' | 'select' | 'delete' | 'move' | null
 
+const DEFAULT_THREAD_ID = 'default'
+
 function emptyPattern(rows: number, cols: number): Pattern {
   const now = Date.now()
   return {
@@ -19,6 +21,9 @@ function emptyPattern(rows: number, cols: number): Pattern {
     rows,
     cols,
     stitches: [],
+    threads: [{ id: DEFAULT_THREAD_ID }],
+    layers: [],
+    groups: [],
     sequence: [],
     createdAt: now,
     updatedAt: now,
@@ -27,9 +32,18 @@ function emptyPattern(rows: number, cols: number): Pattern {
 
 /** Defensive against patterns saved before this rewrite. */
 function normalizePattern(p: Pattern): Pattern {
+  const threads = Array.isArray(p.threads) && p.threads.length > 0
+    ? p.threads
+    : [{ id: DEFAULT_THREAD_ID }]
+  const fallbackThreadId = threads[0].id
   return {
     ...p,
-    stitches: Array.isArray(p.stitches) ? p.stitches : [],
+    stitches: (Array.isArray(p.stitches) ? p.stitches : []).map((s) =>
+      s.threadId ? s : { ...s, threadId: fallbackThreadId },
+    ),
+    threads,
+    layers: Array.isArray(p.layers) ? p.layers : [],
+    groups: Array.isArray(p.groups) ? p.groups : [],
     sequence: Array.isArray(p.sequence) ? p.sequence : [],
   }
 }
@@ -87,18 +101,41 @@ function findStitchNear(stitches: Stitch[], x: number, y: number, excludeId?: st
   return nearest && nearestDist <= STITCH_HIT_RADIUS_GRID ? nearest : null
 }
 
-function resizeAttachments(attachments: (string | null)[], arity: number) {
-  const next = attachments.slice(0, arity)
+function resizeAnchors(anchors: (Anchor | null)[], arity: number) {
+  const next = anchors.slice(0, arity)
   while (next.length < arity) next.push(null)
   return next
 }
 
-/** Detach every attachment pointing at `id` (used when `id` is deleted,
- * so nothing is left referencing a stitch that no longer exists). */
+/** Does this anchor reference stitch `id` as one of its targets? Covers
+ * both single-target anchors (crown/post) and chain-space anchors, which
+ * can reference several chain stitch ids at once. */
+function anchorReferences(anchor: Anchor, id: string) {
+  if (anchor.kind === 'crown' || anchor.kind === 'post') return anchor.targetId === id
+  if (anchor.kind === 'chainSpace') return anchor.chainIds.includes(id)
+  return false
+}
+
+/** Remove stitch `id` from an anchor's references — nulling a crown/post
+ * anchor that pointed at it, or dropping it from a chain-space anchor's
+ * chainIds (nulling the anchor entirely if that empties the span). */
+function withoutReference(anchor: Anchor, id: string): Anchor | null {
+  if (anchor.kind === 'crown' || anchor.kind === 'post') {
+    return anchor.targetId === id ? null : anchor
+  }
+  if (anchor.kind === 'chainSpace') {
+    const chainIds = anchor.chainIds.filter((c) => c !== id)
+    return chainIds.length > 0 ? { ...anchor, chainIds } : null
+  }
+  return anchor
+}
+
+/** Detach every anchor referencing `id` (used when `id` is deleted, so
+ * nothing is left referencing a stitch that no longer exists). */
 function detachReferencesTo(stitches: Stitch[], id: string) {
   return stitches.map((s) =>
-    s.attachments.includes(id)
-      ? { ...s, attachments: s.attachments.map((a) => (a === id ? null : a)) }
+    s.anchors.some((a) => a !== null && anchorReferences(a, id))
+      ? { ...s, anchors: s.anchors.map((a) => (a ? withoutReference(a, id) : a)) }
       : s,
   )
 }
@@ -206,13 +243,17 @@ export const usePatternStore = create<PatternState>((set, get) => {
     attachTo: string | null,
   ) {
     const arity = ATTACHMENT_ARITY[type]
-    const attachments = resizeAttachments(attachTo ? [attachTo] : [], arity)
+    const attachAnchor: Anchor | null = attachTo
+      ? { kind: 'crown', targetId: attachTo, loop: 'both' }
+      : null
+    const anchors = resizeAnchors(attachAnchor ? [attachAnchor] : [], arity)
     const stitch: Stitch = {
       id: crypto.randomUUID(),
       type,
       color,
       pos: { x, y },
-      attachments,
+      anchors,
+      threadId: pattern.threads[0]?.id ?? DEFAULT_THREAD_ID,
     }
     const currentId = selectedStitchIds[selectedStitchIds.length - 1]
     const insertAt = currentId ? pattern.sequence.indexOf(currentId) + 1 : 0
@@ -413,15 +454,15 @@ export const usePatternStore = create<PatternState>((set, get) => {
     commitAttachmentDrag: (stitchId, index, x, y) =>
       set((state) => {
         const target = findStitchNear(state.pattern.stitches, x, y, stitchId)
+        const anchor: Anchor | null = target
+          ? { kind: 'crown', targetId: target.id, loop: 'both' }
+          : null
         return {
           pattern: {
             ...state.pattern,
             stitches: state.pattern.stitches.map((s) =>
               s.id === stitchId
-                ? {
-                    ...s,
-                    attachments: s.attachments.map((a, i) => (i === index ? target?.id ?? null : a)),
-                  }
+                ? { ...s, anchors: s.anchors.map((a, i) => (i === index ? anchor : a)) }
                 : s,
             ),
             updatedAt: Date.now(),
@@ -449,7 +490,7 @@ export const usePatternStore = create<PatternState>((set, get) => {
                         ...s,
                         type: state.activeStitch,
                         color: state.activeColor,
-                        attachments: resizeAttachments(s.attachments, ATTACHMENT_ARITY[state.activeStitch]),
+                        anchors: resizeAnchors(s.anchors, ATTACHMENT_ARITY[state.activeStitch]),
                       }
                   : s,
               ),

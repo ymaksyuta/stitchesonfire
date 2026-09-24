@@ -2,6 +2,7 @@ import { useRef, useEffect, useCallback, useState } from 'react'
 import { usePatternStore, type Tool } from '../../store/patternStore'
 import type { Pattern, Stitch } from '../../types/pattern'
 import { placeGlyph, averageAttachmentAngle, YARN_OVERS } from './stitchGlyphs'
+import { anchorPosition } from './anchorPosition'
 import {
   BASE_CELL_SIZE,
   MAX_ZOOM,
@@ -38,13 +39,13 @@ function resolveStitchRender(
   liveOverride: LiveHandleDrag | null,
 ) {
   const posPx = { x: stitch.pos.x * cellSize, y: stitch.pos.y * cellSize }
-  const targetPositions = stitch.attachments.map((targetId, i) => {
+  const targetPositions = stitch.anchors.map((anchor, i) => {
     if (liveOverride && liveOverride.stitchId === stitch.id && liveOverride.index === i) {
       return { x: liveOverride.x * cellSize, y: liveOverride.y * cellSize }
     }
-    if (!targetId) return null
-    const t = stitchesById.get(targetId)
-    return t ? { x: t.pos.x * cellSize, y: t.pos.y * cellSize } : null
+    if (!anchor) return null
+    const p = anchorPosition(anchor, stitchesById)
+    return p ? { x: p.x * cellSize, y: p.y * cellSize } : null
   })
   const angle = averageAttachmentAngle(
     posPx.x,

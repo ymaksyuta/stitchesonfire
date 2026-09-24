@@ -151,7 +151,7 @@ describe('Add tool sweep', () => {
   })
 })
 
-describe('attachments', () => {
+describe('anchors', () => {
   it('dragging an attachment handle onto another stitch hooks into it', () => {
     const { setActiveTool, applyAddAt, commitAttachmentDrag } = usePatternStore.getState()
     setActiveTool('add')
@@ -161,10 +161,12 @@ describe('attachments', () => {
     const { pattern } = usePatternStore.getState()
     const base = pattern.stitches[0]
     const top = pattern.stitches[1]
-    expect(top.attachments).toEqual([null])
+    expect(top.anchors).toEqual([null])
 
     commitAttachmentDrag(top.id, 0, base.pos.x, base.pos.y)
-    expect(usePatternStore.getState().pattern.stitches[1].attachments).toEqual([base.id])
+    expect(usePatternStore.getState().pattern.stitches[1].anchors).toEqual([
+      { kind: 'crown', targetId: base.id, loop: 'both' },
+    ])
   })
 
   it('dropping an attachment drag on empty space detaches it', () => {
@@ -176,10 +178,12 @@ describe('attachments', () => {
     const base = pattern.stitches[0]
     const top = pattern.stitches[1]
     commitAttachmentDrag(top.id, 0, base.pos.x, base.pos.y)
-    expect(usePatternStore.getState().pattern.stitches[1].attachments).toEqual([base.id])
+    expect(usePatternStore.getState().pattern.stitches[1].anchors).toEqual([
+      { kind: 'crown', targetId: base.id, loop: 'both' },
+    ])
 
     commitAttachmentDrag(top.id, 0, 9, 9) // far from anything
-    expect(usePatternStore.getState().pattern.stitches[1].attachments).toEqual([null])
+    expect(usePatternStore.getState().pattern.stitches[1].anchors).toEqual([null])
   })
 
   it('two stitches attaching to the same target form a fan', () => {
@@ -195,8 +199,8 @@ describe('attachments', () => {
     commitAttachmentDrag(rightLeg.id, 0, base.pos.x, base.pos.y)
 
     const after = usePatternStore.getState().pattern
-    expect(after.stitches[1].attachments[0]).toBe(base.id)
-    expect(after.stitches[2].attachments[0]).toBe(base.id)
+    expect(after.stitches[1].anchors[0]).toEqual({ kind: 'crown', targetId: base.id, loop: 'both' })
+    expect(after.stitches[2].anchors[0]).toEqual({ kind: 'crown', targetId: base.id, loop: 'both' })
   })
 })
 
@@ -229,7 +233,7 @@ describe('deleting', () => {
 
     const after = usePatternStore.getState().pattern
     expect(after.stitches).toHaveLength(1)
-    expect(after.stitches[0].attachments).toEqual([null])
+    expect(after.stitches[0].anchors).toEqual([null])
   })
 })
 
