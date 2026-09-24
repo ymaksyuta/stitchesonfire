@@ -116,35 +116,37 @@ export function StitchPalette() {
       <div className="mb-2">
         <ToolPalette />
       </div>
-      <div className="flex gap-2 overflow-x-auto">
-        {visibleStitches.map((type) => (
-          <div key={type} className="relative shrink-0">
-            <button
-              onPointerDown={(e) => onStitchPointerDown(e, type)}
-              onPointerMove={onStitchPointerMove}
-              onPointerUp={onStitchPointerUp}
-              onPointerCancel={() => {
-                clearLongPressTimer()
-                downRef.current = null
-                setTooltipType(null)
-                cancelPaletteDrag()
-              }}
-              aria-label={t(LABELS[type])}
-              className={`flex h-11 w-11 touch-none items-center justify-center rounded-lg border select-none ${
-                activeStitch === type
-                  ? 'border-zinc-900 bg-zinc-900 text-white'
-                  : 'border-zinc-300 bg-white text-zinc-700'
-              }`}
-            >
-              <StitchIcon type={type} variantId={pattern.glyphVariants?.[type]} />
-            </button>
-            {tooltipType === type && (
-              <div className="pointer-events-none absolute bottom-full left-1/2 mb-1 -translate-x-1/2 rounded bg-zinc-900 px-2 py-1 text-xs whitespace-nowrap text-white shadow-lg">
-                {t(LABELS[type])}
-              </div>
-            )}
-          </div>
-        ))}
+      <div className="flex items-center gap-2">
+        <div className="flex min-w-0 gap-2 overflow-x-auto">
+          {visibleStitches.map((type) => (
+            <div key={type} className="relative shrink-0">
+              <button
+                onPointerDown={(e) => onStitchPointerDown(e, type)}
+                onPointerMove={onStitchPointerMove}
+                onPointerUp={onStitchPointerUp}
+                onPointerCancel={() => {
+                  clearLongPressTimer()
+                  downRef.current = null
+                  setTooltipType(null)
+                  cancelPaletteDrag()
+                }}
+                aria-label={t(LABELS[type])}
+                className={`flex h-11 w-11 touch-none items-center justify-center rounded-lg border select-none ${
+                  activeStitch === type
+                    ? 'border-zinc-900 bg-zinc-900 text-white'
+                    : 'border-zinc-300 bg-white text-zinc-700'
+                }`}
+              >
+                <StitchIcon type={type} variantId={pattern.glyphVariants?.[type]} />
+              </button>
+              {tooltipType === type && (
+                <div className="pointer-events-none absolute bottom-full left-1/2 mb-1 -translate-x-1/2 rounded bg-zinc-900 px-2 py-1 text-xs whitespace-nowrap text-white shadow-lg">
+                  {t(LABELS[type])}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
 
         <div className="relative shrink-0">
           <button

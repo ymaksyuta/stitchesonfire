@@ -15,8 +15,6 @@ import {
 
 const DEFAULT_INK = '#18181b'
 const ACCENT = '#1d4ed8'
-const SEQUENCE_RIGHT = '#93c5fd'
-const SEQUENCE_LEFT = '#fdba74'
 const MARKER_COLOR = '#facc15'
 
 /** A stitch's drawn color: normally whatever its thread defines for its
@@ -134,6 +132,7 @@ function draw(
   showGuides: boolean,
   guideBrightness: number,
   showSequence: boolean,
+  sequenceBrightness: number,
   liveOverride: LiveHandleDrag | null,
   activeThreadId: string | null,
 ) {
@@ -187,8 +186,11 @@ function draw(
   //   2. every attachment "leg" (+ yarn-over ticks)
   //   3. every symbol (halo circle, then its outline)
 
-  // Stage 1 — sequence line, as a double line like everything else.
+  // Stage 1 — sequence line, as a double line like everything else. Gray,
+  // same ink as the guideline dots — its opacity is controlled by its own
+  // brightness range, the same mechanism as the grid's.
   if (showSequence) {
+    const sequenceColor = `rgba(24, 24, 27, ${sequenceBrightness})`
     for (const pass of ['casing', 'color'] as const) {
       for (let i = 0; i < pattern.sequence.length - 1; i++) {
         const a = stitchesById.get(pattern.sequence[i])
@@ -198,7 +200,7 @@ function draw(
         const ay = a.pos.y * cellSize
         const bx = b.pos.x * cellSize
         const by = b.pos.y * cellSize
-        ctx.strokeStyle = pass === 'casing' ? BG : bx - ax >= 0 ? SEQUENCE_RIGHT : SEQUENCE_LEFT
+        ctx.strokeStyle = pass === 'casing' ? BG : sequenceColor
         ctx.lineWidth = pass === 'casing' ? sequenceCasingWidth : sequenceWidth
         ctx.beginPath()
         ctx.moveTo(ax, ay)
@@ -332,6 +334,7 @@ export function StitchGrid() {
     showGuides,
     guideBrightness,
     showSequence,
+    sequenceBrightness,
     registerCanvas,
     selectedStitchIds,
     selectOnly,
@@ -402,6 +405,7 @@ export function StitchGrid() {
       showGuides,
       guideBrightness,
       showSequence,
+      sequenceBrightness,
       liveHandleDrag,
       activeThreadId,
     )
@@ -414,6 +418,7 @@ export function StitchGrid() {
     showGuides,
     guideBrightness,
     showSequence,
+    sequenceBrightness,
     liveHandleDrag,
   ])
 
