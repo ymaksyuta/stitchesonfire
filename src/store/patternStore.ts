@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Anchor, Layer, Pattern, Stitch, StitchType, Thread, ThreadColors } from '../types/pattern'
+import type { Anchor, Layer, Pattern, Stitch, StitchType, Thread } from '../types/pattern'
 import { ATTACHMENT_ARITY, ALL_STITCH_TYPES } from '../types/pattern'
 import {
   BASE_CELL_SIZE,
@@ -14,22 +14,19 @@ export type Tool = 'add' | 'select' | 'delete' | 'move' | null
 const DEFAULT_THREAD_ID = 'default'
 const DEFAULT_LAYER_ID = 'default'
 
-/** Fallback four-color scheme for a thread that doesn't specify its own —
- * active/passive × right/wrong. Arbitrary but consistently distinguishable;
- * a pattern's own threads are free to override every entry. */
-const DEFAULT_THREAD_COLORS: ThreadColors = {
-  activeRight: '#18181b',
-  activeWrong: '#71717a',
-  passiveRight: '#93c5fd',
-  passiveWrong: '#fdba74',
-}
+/** Fallback color for a thread that doesn't specify its own. */
+const DEFAULT_THREAD_COLOR = '#18181b'
 
 function defaultThread(): Thread {
-  return { id: DEFAULT_THREAD_ID, colors: { ...DEFAULT_THREAD_COLORS } }
+  return { id: DEFAULT_THREAD_ID, color: DEFAULT_THREAD_COLOR }
 }
 
 function defaultLayer(): Layer {
-  return { id: DEFAULT_LAYER_ID, grid: { kind: 'rectangular', stepX: 1, stepY: 1 } }
+  return {
+    id: DEFAULT_LAYER_ID,
+    grid: { kind: 'rectangular', stepX: 1, stepY: 1 },
+    shift: { x: 0, y: 0, angle: 0 },
+  }
 }
 
 function emptyPattern(rows: number, cols: number): Pattern {
@@ -52,9 +49,13 @@ function emptyPattern(rows: number, cols: number): Pattern {
 /** Defensive against patterns saved before this rewrite. */
 function normalizePattern(p: Pattern): Pattern {
   const threads = Array.isArray(p.threads) && p.threads.length > 0
-    ? p.threads.map((t) => (t.colors ? t : { ...t, colors: { ...DEFAULT_THREAD_COLORS } }))
+    ? p.threads.map((t) =>
+        typeof t.color === 'string' ? t : { ...t, color: DEFAULT_THREAD_COLOR },
+      )
     : [defaultThread()]
-  const layers = Array.isArray(p.layers) && p.layers.length > 0 ? p.layers : [defaultLayer()]
+  const layers = Array.isArray(p.layers) && p.layers.length > 0
+    ? p.layers.map((l) => (l.shift ? l : { ...l, shift: { x: 0, y: 0, angle: 0 } }))
+    : [defaultLayer()]
   const fallbackThreadId = threads[0].id
   const fallbackLayerId = layers[0].id
   return {
@@ -183,6 +184,8 @@ interface PatternState {
   showSequence: boolean
   guideBrightness: number
   sequenceBrightness: number
+  showSideContrast: boolean
+  sideContrastAmount: number
   selectedStitchIds: string[] // order matters; last = "current"
   activeTool: Tool
   canvasEl: HTMLCanvasElement | null
@@ -191,6 +194,9 @@ interface PatternState {
   /** Last stitch touched during an active Move-tool sweep; internal to
    * commitMoveSweep, not meant to be read by UI code. */
   lastMoveTarget: string | null
+  /** StitchGrid's registered fit-to-content implementation; internal,
+   * set via registerFitView, invoked via fitView. */
+  fitViewImpl: (() => void) | null
 
   setActiveStitch: (stitch: StitchType | null) => void
   toggleVisibleStitchType: (type: StitchType) => void
@@ -200,8 +206,15 @@ interface PatternState {
   toggleSequence: () => void
   setGuideBrightness: (value: number) => void
   setSequenceBrightness: (value: number) => void
+  toggleSideContrast: () => void
+  setSideContrastAmount: (value: number) => void
   setActiveTool: (tool: Tool) => void
   registerCanvas: (el: HTMLCanvasElement | null) => void
+  /** StitchGrid registers its own fit-to-content implementation here
+   * (it owns the container/canvas refs); the toolbar just calls
+   * `fitView()` without knowing how it's done. */
+  registerFitView: (fn: (() => void) | null) => void
+  fitView: () => void
 
   beginPaletteDrag: (
     type: StitchType,
@@ -249,9 +262,12 @@ interface PatternState {
   setSelectedLayer: (layerId: string) => void
   addThread: () => void
   renameThread: (threadId: string, name: string) => void
-  setThreadColor: (threadId: string, key: keyof ThreadColors, value: string) => void
+  setThreadColor: (threadId: string, color: string) => void
+  setThreadLoopSize: (threadId: string, size: number | undefined) => void
   addLayer: () => void
   renameLayer: (layerId: string, name: string) => void
+  setLayerGridKind: (layerId: string, kind: 'rectangular' | 'radial') => void
+  setLayerShift: (layerId: string, axis: 'x' | 'y' | 'angle', value: number) => void
 }
 
 export const usePatternStore = create<PatternState>((set, get) => {
@@ -325,12 +341,15 @@ export const usePatternStore = create<PatternState>((set, get) => {
     showSequence: true,
     guideBrightness: 0.5,
     sequenceBrightness: 0.5,
+    showSideContrast: true,
+    sideContrastAmount: 0.4,
     selectedStitchIds: [],
     activeTool: null,
     canvasEl: null,
     dragPreview: null,
     history: { past: [], future: [] },
     lastMoveTarget: null,
+    fitViewImpl: null,
 
     setActiveStitch: (stitch) => set({ activeStitch: stitch }),
     toggleVisibleStitchType: (type) =>
@@ -353,10 +372,15 @@ export const usePatternStore = create<PatternState>((set, get) => {
       set({ guideBrightness: Math.min(1, Math.max(0.05, value)) }),
     setSequenceBrightness: (value) =>
       set({ sequenceBrightness: Math.min(1, Math.max(0.05, value)) }),
+    toggleSideContrast: () => set((state) => ({ showSideContrast: !state.showSideContrast })),
+    setSideContrastAmount: (value) =>
+      set({ sideContrastAmount: Math.min(1, Math.max(0.05, value)) }),
     setActiveTool: (tool) =>
       set((state) => ({ activeTool: state.activeTool === tool ? null : tool })),
 
     registerCanvas: (el) => set({ canvasEl: el }),
+    registerFitView: (fn) => set({ fitViewImpl: fn }),
+    fitView: () => get().fitViewImpl?.(),
 
     beginPaletteDrag: (type, color, clientX, clientY) =>
       set({ dragPreview: { type, color, clientX, clientY } }),
@@ -691,7 +715,7 @@ export const usePatternStore = create<PatternState>((set, get) => {
         const thread: Thread = {
           id: crypto.randomUUID(),
           name: `Thread ${state.pattern.threads.length + 1}`,
-          colors: { ...DEFAULT_THREAD_COLORS },
+          color: DEFAULT_THREAD_COLOR,
         }
         return {
           pattern: {
@@ -711,12 +735,23 @@ export const usePatternStore = create<PatternState>((set, get) => {
         },
       })),
 
-    setThreadColor: (threadId, key, value) =>
+    setThreadColor: (threadId, color) =>
       set((state) => ({
         pattern: {
           ...state.pattern,
           threads: state.pattern.threads.map((t) =>
-            t.id === threadId ? { ...t, colors: { ...t.colors, [key]: value } } : t,
+            t.id === threadId ? { ...t, color } : t,
+          ),
+          updatedAt: Date.now(),
+        },
+      })),
+
+    setThreadLoopSize: (threadId, size) =>
+      set((state) => ({
+        pattern: {
+          ...state.pattern,
+          threads: state.pattern.threads.map((t) =>
+            t.id === threadId ? { ...t, turningLoopSize: size } : t,
           ),
           updatedAt: Date.now(),
         },
@@ -728,6 +763,7 @@ export const usePatternStore = create<PatternState>((set, get) => {
           id: crypto.randomUUID(),
           name: `Layer ${state.pattern.layers.length + 1}`,
           grid: { kind: 'rectangular', stepX: 1, stepY: 1 },
+          shift: { x: 0, y: 0, angle: 0 },
         }
         return {
           pattern: {
@@ -743,6 +779,33 @@ export const usePatternStore = create<PatternState>((set, get) => {
         pattern: {
           ...state.pattern,
           layers: state.pattern.layers.map((l) => (l.id === layerId ? { ...l, name } : l)),
+          updatedAt: Date.now(),
+        },
+      })),
+
+    setLayerGridKind: (layerId, kind) =>
+      set((state) => ({
+        pattern: {
+          ...state.pattern,
+          layers: state.pattern.layers.map((l) => {
+            if (l.id !== layerId || l.grid.kind === kind) return l
+            const grid =
+              kind === 'rectangular'
+                ? { kind: 'rectangular' as const, stepX: 1, stepY: 1 }
+                : { kind: 'radial' as const, stepRadius: 1 }
+            return { ...l, grid }
+          }),
+          updatedAt: Date.now(),
+        },
+      })),
+
+    setLayerShift: (layerId, axis, value) =>
+      set((state) => ({
+        pattern: {
+          ...state.pattern,
+          layers: state.pattern.layers.map((l) =>
+            l.id === layerId ? { ...l, shift: { ...l.shift, [axis]: value } } : l,
+          ),
           updatedAt: Date.now(),
         },
       })),

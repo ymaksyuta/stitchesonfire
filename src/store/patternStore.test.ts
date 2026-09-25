@@ -431,15 +431,26 @@ describe('stitch properties: thread/layer/side/marker', () => {
     expect(usePatternStore.getState().pattern.stitches[0].thread).toBe(newThread.id)
 
     usePatternStore.getState().renameThread(newThread.id, 'Contrast')
-    usePatternStore.getState().setThreadColor(newThread.id, 'activeRight', '#ff0000')
+    usePatternStore.getState().setThreadColor(newThread.id, '#ff0000')
     const updatedThread = usePatternStore.getState().pattern.threads[1]
     expect(updatedThread.name).toBe('Contrast')
-    expect(updatedThread.colors.activeRight).toBe('#ff0000')
+    expect(updatedThread.color).toBe('#ff0000')
 
     usePatternStore.getState().addLayer()
     const newLayer = usePatternStore.getState().pattern.layers[1]
     expect(newLayer).toBeDefined()
     usePatternStore.getState().setSelectedLayer(newLayer.id)
     expect(usePatternStore.getState().pattern.stitches[0].layer).toBe(newLayer.id)
+
+    usePatternStore.getState().setThreadLoopSize(newThread.id, 1.5)
+    expect(usePatternStore.getState().pattern.threads[1].turningLoopSize).toBe(1.5)
+
+    usePatternStore.getState().setLayerGridKind(newLayer.id, 'radial')
+    const radialLayer = usePatternStore.getState().pattern.layers[1]
+    expect(radialLayer.grid).toEqual({ kind: 'radial', stepRadius: 1 })
+
+    usePatternStore.getState().setLayerShift(newLayer.id, 'x', 2.5)
+    usePatternStore.getState().setLayerShift(newLayer.id, 'angle', 45)
+    expect(usePatternStore.getState().pattern.layers[1].shift).toEqual({ x: 2.5, y: 0, angle: 45 })
   })
 })

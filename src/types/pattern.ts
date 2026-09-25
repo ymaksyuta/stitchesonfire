@@ -74,9 +74,8 @@ export const ATTACHMENT_ARITY: Record<StitchType, number> = {
 export interface Stitch {
   id: string
   type: StitchType
-  /** Optional accent color (hex). Falls back to the default ink color.
-   * Not tied to `side` specifically — usable for any future coloring
-   * need too. */
+  /** Optional accent color (hex). When set, it overrides the color the
+   * stitch would otherwise draw with from its thread + side. */
   color?: string
   pos: { x: number; y: number }
   anchors: (Anchor | null)[]
@@ -100,30 +99,16 @@ export interface Stitch {
    */
   size?: number
   /**
-   * Right-side / wrong-side, independent of row grouping. Selects which
-   * of the owning thread's four colors (see `Thread.colors`) this stitch
-   * draws with. The very first stitch defaults to `'right'`; every
-   * stitch after that defaults from the placement direction relative to
-   * the previous stitch (the same left/right test the sequence-line
-   * coloring uses) — the user can flip it explicitly afterwards.
+   * Right-side / wrong-side, independent of row grouping. The wrong side
+   * draws with the same hue as the owning thread's `color` but reduced
+   * saturation (see `sideContrastAmount` in the store) — same-family
+   * shading rather than a second color to track. The very first stitch
+   * defaults to `'right'`; every stitch after that defaults from the
+   * placement direction relative to the previous stitch (the same
+   * left/right test the sequence-line coloring uses) — the user can flip
+   * it explicitly afterwards.
    */
   side: 'right' | 'wrong'
-}
-
-/**
- * The four colors a thread draws with. "Active" means this is the
- * thread of the current stitch (the last-selected stitch) — any other
- * thread present in the pattern is "passive". Independently, each
- * stitch's own `side` picks the right/wrong half of that pair. A
- * stitch's `color` may override the resolved color, but only while its
- * thread is the active one — on a passive thread the thread color always
- * wins.
- */
-export interface ThreadColors {
-  activeRight: string
-  activeWrong: string
-  passiveRight: string
-  passiveWrong: string
 }
 
 /**
@@ -134,9 +119,13 @@ export interface ThreadColors {
 export interface Thread {
   id: string
   name?: string
-  colors: ThreadColors
+  /** One base color; the wrong side of a stitch on this thread draws
+   * with the same hue at reduced saturation (see the store's
+   * `sideContrastAmount`) rather than a second stored color. */
+  color: string
   /** Default turning-chain loop size for stitches on this thread, unless
-   * a stitch sets `size`. */
+   * a stitch sets `size`. Fractional values are fine (loop size is
+   * driven by hook size and varies continuously). */
   turningLoopSize?: number
 }
 
@@ -166,6 +155,10 @@ export interface Layer {
   id: string
   name?: string
   grid: GridType
+  /** Offset of the grid's origin from the canvas center, in cell units
+   * for x/y and degrees for angle. Purely a guideline transform — never
+   * affects stitch `pos`. */
+  shift: { x: number; y: number; angle: number }
 }
 
 // --- Groups (three-tier hierarchy) --------------------------------------

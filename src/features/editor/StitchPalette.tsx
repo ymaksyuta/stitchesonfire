@@ -5,7 +5,9 @@ import { ALL_STITCH_TYPES, type StitchType } from '../../types/pattern'
 import { GLYPH_VARIANTS } from './stitchGlyphs'
 import { GuideToggle } from './GuideToggle'
 import { SequenceToggle } from './SequenceToggle'
+import { SideContrastToggle } from './SideContrastToggle'
 import { ZoomControl } from './ZoomControl'
+import { ResetViewButton } from './ResetViewButton'
 import { StitchIcon } from './StitchIcon'
 import { ToolPalette } from './ToolPalette'
 import { StitchProperties } from './StitchProperties'
@@ -117,7 +119,7 @@ export function StitchPalette() {
       <div className="mb-2">
         <ToolPalette />
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <div className="flex min-w-0 gap-2 overflow-x-auto">
           {visibleStitches.map((type) => (
             <div key={type} className="relative shrink-0">
@@ -213,6 +215,12 @@ export function StitchPalette() {
                         onPointerLeave={() => {
                           if (rowLongPressTimer.current) clearTimeout(rowLongPressTimer.current)
                           rowLongPressTimer.current = null
+                        }}
+                        onContextMenu={(e) => {
+                          e.preventDefault()
+                          if (rowLongPressTimer.current) clearTimeout(rowLongPressTimer.current)
+                          rowLongPressTimer.current = null
+                          if (hasVariants) setVariantPickerFor(type)
                         }}
                         className="flex w-full items-center gap-2 border-t border-zinc-100 px-3 py-2 text-left text-sm text-zinc-800 select-none hover:bg-zinc-50"
                       >
@@ -329,7 +337,9 @@ export function StitchPalette() {
 
         <GuideToggle />
         <SequenceToggle />
+        <SideContrastToggle />
         <ZoomControl />
+        <ResetViewButton />
       </div>
 
       <StitchProperties />

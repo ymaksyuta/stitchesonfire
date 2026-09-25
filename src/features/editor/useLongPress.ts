@@ -46,5 +46,13 @@ export function useLongPress(onLongPress: () => void, onTap?: () => void) {
     start.current = null
   }
 
-  return { onPointerDown, onPointerMove, onPointerUp, onPointerCancel }
+  const onContextMenu = (e: React.MouseEvent) => {
+    // Right-click: same as a long-press, and skip the native menu.
+    e.preventDefault()
+    clear()
+    firedLongPress.current = true
+    onLongPress()
+  }
+
+  return { onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onContextMenu }
 }

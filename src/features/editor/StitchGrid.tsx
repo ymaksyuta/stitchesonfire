@@ -16,29 +16,68 @@ import {
 const DEFAULT_INK = '#18181b'
 const ACCENT = '#1d4ed8'
 const MARKER_COLOR = '#facc15'
+/** How far beyond the guideline grid's own extent (in cells) the canvas
+ * grows to keep showing stitches placed past its edge. */
+const CONTENT_PADDING_CELLS = 2
 
-/** A stitch's drawn color: normally whatever its thread defines for its
- * side (active/passive × right/wrong — see `Thread.colors`); a stitch's
- * own `color` only takes over while its thread is the active one — a
- * passive thread's color always wins over a stitch's `color`. Selection
- * highlight (accent blue) overrides all of it. */
+/** #rrggbb -> {h (0-360), s (0-1), l (0-1)}. Falls back to black on any
+ * unparseable input (e.g. an empty/partial value mid-edit). */
+function hexToHsl(hex: string): { h: number; s: number; l: number } {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim())
+  if (!m) return { h: 0, s: 0, l: 0 }
+  const r = parseInt(m[1].slice(0, 2), 16) / 255
+  const g = parseInt(m[1].slice(2, 4), 16) / 255
+  const b = parseInt(m[1].slice(4, 6), 16) / 255
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const l = (max + min) / 2
+  if (max === min) return { h: 0, s: 0, l }
+  const d = max - min
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+  let h: number
+  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) * 60
+  else if (max === g) h = ((b - r) / d + 2) * 60
+  else h = ((r - g) / d + 4) * 60
+  return { h, s, l }
+}
+
+function hslToHex(h: number, s: number, l: number): string {
+  const c = (1 - Math.abs(2 * l - 1)) * s
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
+  const m = l - c / 2
+  let r = 0
+  let g = 0
+  let b = 0
+  if (h < 60) [r, g, b] = [c, x, 0]
+  else if (h < 120) [r, g, b] = [x, c, 0]
+  else if (h < 180) [r, g, b] = [0, c, x]
+  else if (h < 240) [r, g, b] = [0, x, c]
+  else if (h < 300) [r, g, b] = [x, 0, c]
+  else [r, g, b] = [c, 0, x]
+  const toByte = (v: number) => Math.round((v + m) * 255)
+  return `#${[toByte(r), toByte(g), toByte(b)]
+    .map((v) => v.toString(16).padStart(2, '0'))
+    .join('')}`
+}
+
+/** A stitch's drawn color: its thread's color for the right side; the
+ * same hue at reduced saturation for the wrong side (same-family
+ * shading, not a second stored color — see `sideContrastAmount`). A
+ * stitch's own `color`, when set, overrides the resolved color
+ * outright. Selection highlight (accent blue) overrides all of it. */
 function resolveStitchColor(
   stitch: Stitch,
   thread: Thread | undefined,
-  isActiveThread: boolean,
   isSelected: boolean,
+  showSideContrast: boolean,
+  sideContrastAmount: number,
 ) {
   if (isSelected) return ACCENT
-  const base = thread
-    ? stitch.side === 'right'
-      ? isActiveThread
-        ? thread.colors.activeRight
-        : thread.colors.passiveRight
-      : isActiveThread
-        ? thread.colors.activeWrong
-        : thread.colors.passiveWrong
-    : DEFAULT_INK
-  return isActiveThread && stitch.color ? stitch.color : base
+  if (stitch.color) return stitch.color
+  const base = thread?.color ?? DEFAULT_INK
+  if (stitch.side !== 'wrong' || !showSideContrast) return base
+  const { h, s, l } = hexToHsl(base)
+  return hslToHex(h, s * sideContrastAmount, l)
 }
 
 interface LiveHandleDrag {
@@ -122,6 +161,21 @@ function drawYarnOverTicks(
   }
 }
 
+/** The grid is a fixed `rows × cols` guideline, but stitches are free
+ * {x,y} and can land past it (dragged, or placed by a sweep tool near
+ * the edge) — so the canvas itself grows to cover whatever's actually
+ * there, padded a couple of cells, instead of hard-clipping at the
+ * guideline's own bounds. */
+function contentExtent(pattern: Pattern): { cols: number; rows: number } {
+  let maxX = pattern.cols
+  let maxY = pattern.rows
+  for (const s of pattern.stitches) {
+    if (s.pos.x > maxX) maxX = s.pos.x
+    if (s.pos.y > maxY) maxY = s.pos.y
+  }
+  return { cols: maxX + CONTENT_PADDING_CELLS, rows: maxY + CONTENT_PADDING_CELLS }
+}
+
 function draw(
   ctx: CanvasRenderingContext2D,
   pattern: Pattern,
@@ -134,10 +188,12 @@ function draw(
   showSequence: boolean,
   sequenceBrightness: number,
   liveOverride: LiveHandleDrag | null,
-  activeThreadId: string | null,
+  showSideContrast: boolean,
+  sideContrastAmount: number,
 ) {
-  const width = pattern.cols * cellSize
-  const height = pattern.rows * cellSize
+  const extent = contentExtent(pattern)
+  const width = extent.cols * cellSize
+  const height = extent.rows * cellSize
   ctx.clearRect(0, 0, width, height)
 
   if (showGuides) {
@@ -217,8 +273,9 @@ function draw(
       const color = resolveStitchColor(
         stitch,
         threadsById.get(stitch.thread),
-        stitch.thread === activeThreadId,
         isSelected,
+        showSideContrast,
+        sideContrastAmount,
       )
       const ticks = YARN_OVERS[stitch.type]
       for (const target of render.targetPositions) {
@@ -248,8 +305,9 @@ function draw(
       const color = resolveStitchColor(
         stitch,
         threadsById.get(stitch.thread),
-        stitch.thread === activeThreadId,
         isSelected,
+        showSideContrast,
+        sideContrastAmount,
       )
       const w = isSelected ? selectedWidth : normalWidth
 
@@ -335,7 +393,10 @@ export function StitchGrid() {
     guideBrightness,
     showSequence,
     sequenceBrightness,
+    showSideContrast,
+    sideContrastAmount,
     registerCanvas,
+    registerFitView,
     selectedStitchIds,
     selectOnly,
     toggleSelect,
@@ -372,6 +433,32 @@ export function StitchGrid() {
     return () => registerCanvas(null)
   }, [registerCanvas])
 
+  // Fit-to-content: zoom + scroll so the whole pattern (or, if it's
+  // empty, the guideline grid) is visible. Registered with the store so
+  // a toolbar button elsewhere can trigger it without owning these refs.
+  useEffect(() => {
+    const fit = () => {
+      const container = containerRef.current
+      if (!container) return
+      const extent = contentExtent(pattern)
+      const availW = container.clientWidth - 24
+      const availH = container.clientHeight - 24
+      const fitZoom = Math.min(
+        MAX_ZOOM,
+        Math.max(MIN_ZOOM, Math.min(availW / (extent.cols * BASE_CELL_SIZE), availH / (extent.rows * BASE_CELL_SIZE))),
+      )
+      setZoom(fitZoom)
+      // Scroll happens after the zoom-triggered resize effect below has
+      // resized the canvas — next frame is enough for that layout pass.
+      requestAnimationFrame(() => {
+        container.scrollLeft = 0
+        container.scrollTop = 0
+      })
+    }
+    registerFitView(fit)
+    return () => registerFitView(null)
+  }, [pattern, registerFitView, setZoom])
+
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -379,21 +466,14 @@ export function StitchGrid() {
     if (!ctx) return
 
     const dpr = window.devicePixelRatio || 1
-    const width = pattern.cols * cellSize
-    const height = pattern.rows * cellSize
+    const extent = contentExtent(pattern)
+    const width = extent.cols * cellSize
+    const height = extent.rows * cellSize
     canvas.width = width * dpr
     canvas.height = height * dpr
     canvas.style.width = `${width}px`
     canvas.style.height = `${height}px`
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-
-    // The active thread is whichever thread the current stitch (the
-    // last-selected one) belongs to — it decides both the active/passive
-    // color pair and whether a stitch's own `color` can override it.
-    const currentId = selectedStitchIds[selectedStitchIds.length - 1]
-    const activeThreadId = currentId
-      ? pattern.stitches.find((s) => s.id === currentId)?.thread ?? null
-      : null
 
     draw(
       ctx,
@@ -407,7 +487,8 @@ export function StitchGrid() {
       showSequence,
       sequenceBrightness,
       liveHandleDrag,
-      activeThreadId,
+      showSideContrast,
+      sideContrastAmount,
     )
   }, [
     pattern,
@@ -419,6 +500,8 @@ export function StitchGrid() {
     guideBrightness,
     showSequence,
     sequenceBrightness,
+    showSideContrast,
+    sideContrastAmount,
     liveHandleDrag,
   ])
 
