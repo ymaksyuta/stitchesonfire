@@ -88,26 +88,34 @@ A stitch is its own position anchor — there is no separate node entity:
   `thread`, `layer`, and `side` are all required. `thread`/`layer` are
   independent axes (thread = working order + color scheme, layer = grid
   type/points — see below); `side` (right/wrong) is independent of row
-  grouping and selects which of the owning `Thread`'s four colors the
-  stitch draws with (see `Thread` below). `marker` is a display-only
-  badge flag (no row-counting semantics). `size` overrides the thread's
-  default turning-chain loop size for this stitch.
-- `Thread { id, name?, colors: {activeRight, activeWrong, passiveRight,
-  passiveWrong}, turningLoopSize? }` — a yarn strand. A pattern can have
-  more than one. "Active" = the thread of the current (last-selected)
-  stitch; every other thread is "passive". A stitch is drawn with its
-  thread's color for its `side`; a stitch's own `color` only overrides
-  that while its thread is the active one — on a passive thread the
-  thread color always wins.
-- `Layer { id, grid }` — supplies a rectangular or radial grid for
-  guideline/snap points only; never a source of truth for `pos`.
+  grouping and picks whether the stitch draws at full or reduced
+  saturation (see `Thread` below). `marker` is a display-only badge flag
+  (no row-counting semantics). `size` overrides the thread's default
+  turning-chain loop size for this stitch.
+- `Thread { id, name?, color, turningLoopSize? }` — a yarn strand, one
+  base color. A pattern can have more than one. A stitch draws in its
+  thread's `color` on the right side; the wrong side draws the same hue
+  at reduced saturation, not a second stored color — the reduction
+  amount is a global setting (`sideContrastAmount`/`showSideContrast` in
+  the store, `SideContrastToggle.tsx` in the UI). A stitch's own `color`,
+  when set, overrides the resolved color outright, on any thread.
+- `Layer { id, name?, grid, shift: {x,y,angle} }` — `grid` is a
+  rectangular or radial grid for guideline/snap points only, never a
+  source of truth for `pos`. `shift` offsets the grid's origin from the
+  canvas center (cell units for x/y, degrees for angle) — a guideline
+  transform only, never applied to any stitch's `pos`.
 - `Group` (chain-arc / composite-motif / repeat-with-instancing) — not
   wired into any UI yet, types exist in `pattern.ts`.
 - `Pattern.sequence: string[]` — the order the thread is actually worked
   in, independent of `anchors` (a stitch's structural connection).
   Editing structure never reorders the thread and vice versa.
-- `Pattern.rows/cols` only size the guideline grid + canvas extent, not a
-  hard cell grid.
+- `Pattern.rows/cols` only size the *guideline grid*. The canvas itself
+  is not fixed to it — it grows to the bounding box of the actual
+  stitches (`contentExtent()` in `StitchGrid.tsx`, padded a couple of
+  cells) so placing/dragging past the nominal grid never clips. A
+  "fit to pattern" button (`ResetViewButton.tsx`, store's `fitView()`,
+  registered by `StitchGrid.tsx` via `registerFitView`) zooms + scrolls
+  to show it all.
 - New/loaded patterns are defensively normalized (`normalizePattern` in
   `patternStore.ts`) — old saved patterns missing threads/layers/groups
   or per-stitch thread/layer/side get sane defaults backfilled.
@@ -258,16 +266,26 @@ Editing rules (`src/store/patternStore.ts`), by design, not by accident:
 15. Stitch-properties UI ✅: `StitchProperties.tsx`, shown in the footer
     below the palette whenever there's a selection. Side toggle (flips
     the whole selection's `side`), marker toggle (bright-badge flag),
-    thread picker (swatch + name, click to assign the selection; each row
-    has an inline editor for name + all 4 `ThreadColors`; "+ Add thread"
-    appends one with default colors), layer picker (name, click to
-    assign; inline rename; "+ Add layer" appends a default rectangular
-    grid layer — grid-type editing itself still not built). All backed by
-    new store actions: `toggleSelectedSide`/`toggleSelectedMarker`/
-    `setSelectedThread`/`setSelectedLayer`/`addThread`/`renameThread`/
-    `setThreadColor`/`addLayer`/`renameLayer` — every one applies to the
-    whole current selection, not just the last-selected stitch. Groups
-    and the anchor editor (loop/post-side/offset UI) are still not built.
+    thread picker, layer picker. Superseded by item 16 below (tap/
+    long-press split, single thread color, layer grid+shift editing).
+16. Toolbar interaction convention + thread/layer settings popups ✅:
+    every toolbar control now follows one rule — tap picks/toggles,
+    long-press *or right-click* opens a settings popup
+    (`useLongPress.ts` gained `onContextMenu` so every existing user of
+    the hook got right-click for free). Thread color simplified from the
+    4-key scheme to one `Thread.color`, with the wrong side drawn same-hue/
+    reduced-saturation instead (`sideContrastAmount`/`showSideContrast` +
+    `SideContrastToggle.tsx`, mirrors Guide/Sequence). `StitchProperties.tsx`'s
+    thread/layer buttons: tap opens a quick-select list (+ "add"),
+    long-press/right-click opens a settings popup for the *current* one —
+    thread: name, color, float loop-size spinner; layer: name, grid-kind
+    switch (rectangular/radial), and x/y/angle shift from canvas center.
+    Canvas is no longer clipped to `rows×cols` — it grows to fit the
+    actual stitch bounding box (`contentExtent()`), and a "fit to
+    pattern" button (`ResetViewButton.tsx`) zooms/scrolls to show it all.
+    Groups and the anchor editor (loop/post-side/offset UI) are still not
+    built; radial-grid rendering itself (as opposed to just storing the
+    grid kind) is still not built either.
 
 ## Known issues
 - "More stitch types" popup: toggling a row *on* closes the popup;
