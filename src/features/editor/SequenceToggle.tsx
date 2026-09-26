@@ -25,7 +25,7 @@ export function SequenceToggle() {
         title={t('editor.showSequence')}
         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md border select-none ${
           showSequence
-            ? 'border-zinc-900 text-zinc-900'
+            ? 'border-amber-700 text-amber-700'
             : 'border-zinc-300 text-zinc-400'
         }`}
       >

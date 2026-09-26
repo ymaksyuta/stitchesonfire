@@ -348,6 +348,32 @@ test intentionally fails as a reminder.
     longer show a text name next to the icon (name is still in
     title/aria-label).
 
+19. Icon color + always-active properties (2026-09-26) ✅: toolbar icons
+    that used to read as one flat gray wall now carry restrained accent
+    colors — `ToolIcon.tsx`'s select/move tools, `GuideToggle.tsx`,
+    `SequenceToggle.tsx`, `ResetViewButton.tsx`, and the side/layer icons
+    in `StitchProperties.tsx` each got a distinct muted hue; stitch glyph
+    icons themselves (`StitchIcon.tsx`) stay plain black-on-white on
+    purpose — they're the actual print/export chart symbols, not UI
+    chrome. The thread icon is now a wound-yarn-ball glyph (circle +
+    two thin arc "windings") with a smooth bezier strand, replacing the
+    old jagged zigzag polyline; still stroked/filled in the thread's own
+    color. Side/marker/thread/layer are no longer selection-only: the
+    store gained `activeSide`/`activeMarker`/`activeThread`/
+    `activeLayer` (mirroring `activeColor`/`activeStitch`) that stamp
+    every newly placed stitch, so these controls are always live even
+    with nothing selected — `toggleSide`/`toggleMarker`/`setThread`/
+    `setLayer` (renamed from `toggleSelectedSide`/`toggleSelectedMarker`/
+    `setSelectedThread`/`setSelectedLayer`) update the active default
+    *and* apply to the current selection when there is one. This
+    replaced the old placement-direction heuristic for a new stitch's
+    default side (previously: right unless placed left of the current
+    stitch) — side is now always exactly what the toolbar shows.
+    `activeThread`/`activeLayer` reset to the pattern's first
+    thread/layer on `reset()`/`loadPattern()` (a stale id from a
+    previous pattern would otherwise dangle); `resolveThreadId`/
+    `resolveLayerId` in `patternStore.ts` guard against that case too.
+
 ## Known issues
 - "More stitch types" popup: toggling a row *on* closes the popup;
   toggling one *off* does not — should be symmetric either way.

@@ -179,6 +179,15 @@ interface PatternState {
   activeStitch: StitchType | null
   visibleStitchTypes: StitchType[]
   activeColor: string | undefined
+  // Active side/marker/thread/layer: the values stamped onto newly
+  // placed stitches, always live and toggleable regardless of whether
+  // anything is selected (mirrors activeColor/activeStitch). When there
+  // is a selection, toggling one of these also applies it to the whole
+  // selection — see toggleSide/toggleMarker/setThread/setLayer below.
+  activeSide: Stitch['side']
+  activeMarker: boolean
+  activeThread: string
+  activeLayer: string
   zoom: number
   showGuides: boolean
   showSequence: boolean
@@ -255,11 +264,13 @@ interface PatternState {
   resizePattern: (rows: number, cols: number) => void
   loadPattern: (pattern: Pattern) => void
 
-  // Selected-stitch property editing (thread/layer/side/marker).
-  toggleSelectedSide: () => void
-  toggleSelectedMarker: () => void
-  setSelectedThread: (threadId: string) => void
-  setSelectedLayer: (layerId: string) => void
+  // Side/marker/thread/layer editing. Each always updates the
+  // corresponding active* default for new stitches, and additionally
+  // applies to the current selection when there is one.
+  toggleSide: () => void
+  toggleMarker: () => void
+  setThread: (threadId: string) => void
+  setLayer: (layerId: string) => void
   addThread: () => void
   renameThread: (threadId: string, name: string) => void
   setThreadColor: (threadId: string, color: string) => void
@@ -286,6 +297,21 @@ export const usePatternStore = create<PatternState>((set, get) => {
    * make it the new sole selection/current. Shared by palette-drop and
    * the Add tool. Does not push history itself — callers do that once
    * per gesture. */
+  /** The active thread/layer ids are UI state, independent of whichever
+   * pattern happens to be loaded — fall back to the pattern's first
+   * thread/layer if the active id doesn't exist in it (e.g. right after
+   * loading a different pattern). */
+  function resolveThreadId(pattern: Pattern, activeThread: string): string {
+    return pattern.threads.some((t) => t.id === activeThread)
+      ? activeThread
+      : (pattern.threads[0]?.id ?? DEFAULT_THREAD_ID)
+  }
+  function resolveLayerId(pattern: Pattern, activeLayer: string): string {
+    return pattern.layers.some((l) => l.id === activeLayer)
+      ? activeLayer
+      : (pattern.layers[0]?.id ?? DEFAULT_LAYER_ID)
+  }
+
   function insertStitch(
     pattern: Pattern,
     selectedStitchIds: string[],
@@ -294,6 +320,10 @@ export const usePatternStore = create<PatternState>((set, get) => {
     x: number,
     y: number,
     attachTo: string | null,
+    thread: string,
+    layer: string,
+    side: Stitch['side'],
+    marker: boolean,
   ) {
     const arity = ATTACHMENT_ARITY[type]
     const attachAnchor: Anchor | null = attachTo
@@ -301,21 +331,16 @@ export const usePatternStore = create<PatternState>((set, get) => {
       : null
     const anchors = resizeAnchors(attachAnchor ? [attachAnchor] : [], arity)
     const currentId = selectedStitchIds[selectedStitchIds.length - 1]
-    const prevStitch = currentId ? pattern.stitches.find((s) => s.id === currentId) : undefined
-    // Default side: the first stitch is 'right'; every stitch after that
-    // takes the same left/right read as the sequence-line coloring
-    // (direction from the previous/current stitch) — the user can flip
-    // it explicitly afterwards.
-    const side: Stitch['side'] = !prevStitch || x - prevStitch.pos.x >= 0 ? 'right' : 'wrong'
     const stitch: Stitch = {
       id: crypto.randomUUID(),
       type,
       color,
       pos: { x, y },
       anchors,
-      thread: pattern.threads[0]?.id ?? DEFAULT_THREAD_ID,
-      layer: pattern.layers[0]?.id ?? DEFAULT_LAYER_ID,
+      thread,
+      layer,
       side,
+      marker,
     }
     const insertAt = currentId ? pattern.sequence.indexOf(currentId) + 1 : 0
     const sequence = [...pattern.sequence]
@@ -336,6 +361,10 @@ export const usePatternStore = create<PatternState>((set, get) => {
     activeStitch: 'chain',
     visibleStitchTypes: loadVisibleStitchTypes(),
     activeColor: undefined,
+    activeSide: 'right',
+    activeMarker: false,
+    activeThread: DEFAULT_THREAD_ID,
+    activeLayer: DEFAULT_LAYER_ID,
     zoom: 1,
     showGuides: true,
     showSequence: true,
@@ -431,6 +460,10 @@ export const usePatternStore = create<PatternState>((set, get) => {
           x,
           y,
           null,
+          resolveThreadId(state.pattern, state.activeThread),
+          resolveLayerId(state.pattern, state.activeLayer),
+          state.activeSide,
+          state.activeMarker,
         )
         set({ pattern, selectedStitchIds: [stitchId] })
       }
@@ -579,6 +612,10 @@ export const usePatternStore = create<PatternState>((set, get) => {
           snapped.x,
           snapped.y,
           null,
+          resolveThreadId(state.pattern, state.activeThread),
+          resolveLayerId(state.pattern, state.activeLayer),
+          state.activeSide,
+          state.activeMarker,
         )
         return { pattern, selectedStitchIds: [stitchId] }
       }),
@@ -648,65 +685,80 @@ export const usePatternStore = create<PatternState>((set, get) => {
         },
       })),
 
-    toggleSelectedSide: () =>
+    // Each of these always updates the active* default (so it applies to
+    // every stitch placed from here on), and additionally applies to the
+    // current selection, if there is one, right now.
+    toggleSide: () =>
       set((state) => {
+        const nextSide: Stitch['side'] = state.activeSide === 'right' ? 'wrong' : 'right'
         const ids = new Set(state.selectedStitchIds)
-        if (ids.size === 0) return {}
         return {
-          pattern: {
-            ...state.pattern,
-            stitches: state.pattern.stitches.map((s) =>
-              ids.has(s.id) ? { ...s, side: s.side === 'right' ? 'wrong' : 'right' } : s,
-            ),
-            updatedAt: Date.now(),
-          },
+          activeSide: nextSide,
+          pattern:
+            ids.size === 0
+              ? state.pattern
+              : {
+                  ...state.pattern,
+                  stitches: state.pattern.stitches.map((s) =>
+                    ids.has(s.id) ? { ...s, side: nextSide } : s,
+                  ),
+                  updatedAt: Date.now(),
+                },
         }
       }),
 
-    toggleSelectedMarker: () =>
+    toggleMarker: () =>
       set((state) => {
+        const nextMarker = !state.activeMarker
         const ids = new Set(state.selectedStitchIds)
-        if (ids.size === 0) return {}
-        const selected = state.pattern.stitches.filter((s) => ids.has(s.id))
-        const nextMarker = !selected.every((s) => s.marker)
         return {
-          pattern: {
-            ...state.pattern,
-            stitches: state.pattern.stitches.map((s) =>
-              ids.has(s.id) ? { ...s, marker: nextMarker } : s,
-            ),
-            updatedAt: Date.now(),
-          },
+          activeMarker: nextMarker,
+          pattern:
+            ids.size === 0
+              ? state.pattern
+              : {
+                  ...state.pattern,
+                  stitches: state.pattern.stitches.map((s) =>
+                    ids.has(s.id) ? { ...s, marker: nextMarker } : s,
+                  ),
+                  updatedAt: Date.now(),
+                },
         }
       }),
 
-    setSelectedThread: (threadId) =>
+    setThread: (threadId) =>
       set((state) => {
         const ids = new Set(state.selectedStitchIds)
-        if (ids.size === 0) return {}
         return {
-          pattern: {
-            ...state.pattern,
-            stitches: state.pattern.stitches.map((s) =>
-              ids.has(s.id) ? { ...s, thread: threadId } : s,
-            ),
-            updatedAt: Date.now(),
-          },
+          activeThread: threadId,
+          pattern:
+            ids.size === 0
+              ? state.pattern
+              : {
+                  ...state.pattern,
+                  stitches: state.pattern.stitches.map((s) =>
+                    ids.has(s.id) ? { ...s, thread: threadId } : s,
+                  ),
+                  updatedAt: Date.now(),
+                },
         }
       }),
 
-    setSelectedLayer: (layerId) =>
+    setLayer: (layerId) =>
       set((state) => {
         const ids = new Set(state.selectedStitchIds)
-        if (ids.size === 0) return {}
         return {
-          pattern: {
-            ...state.pattern,
-            stitches: state.pattern.stitches.map((s) =>
-              ids.has(s.id) ? { ...s, layer: layerId } : s,
-            ),
-            updatedAt: Date.now(),
-          },
+          activeLayer: layerId,
+          pattern:
+            ids.size === 0
+              ? state.pattern
+              : {
+                  ...state.pattern,
+                  stitches: state.pattern.stitches.map((s) =>
+                    ids.has(s.id) ? { ...s, layer: layerId } : s,
+                  ),
+                  updatedAt: Date.now(),
+                },
         }
       }),
 
@@ -815,6 +867,10 @@ export const usePatternStore = create<PatternState>((set, get) => {
         pattern: emptyPattern(rows, cols),
         selectedStitchIds: [],
         history: { past: [], future: [] },
+        activeSide: 'right',
+        activeMarker: false,
+        activeThread: DEFAULT_THREAD_ID,
+        activeLayer: DEFAULT_LAYER_ID,
       }),
 
     resizePattern: (rows, cols) =>
@@ -826,12 +882,18 @@ export const usePatternStore = create<PatternState>((set, get) => {
         }
       }),
 
-    loadPattern: (pattern) =>
+    loadPattern: (pattern) => {
+      const normalized = normalizePattern(pattern)
       set({
-        pattern: normalizePattern(pattern),
+        pattern: normalized,
         zoom: 1,
         selectedStitchIds: [],
         history: { past: [], future: [] },
-      }),
+        activeSide: 'right',
+        activeMarker: false,
+        activeThread: normalized.threads[0]?.id ?? DEFAULT_THREAD_ID,
+        activeLayer: normalized.layers[0]?.id ?? DEFAULT_LAYER_ID,
+      })
+    },
   }
 })

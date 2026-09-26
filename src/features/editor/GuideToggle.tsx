@@ -24,7 +24,7 @@ export function GuideToggle() {
         title={t('editor.showGuides')}
         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md border select-none ${
           showGuides
-            ? 'border-zinc-900 text-zinc-900'
+            ? 'border-cyan-700 text-cyan-700'
             : 'border-zinc-300 text-zinc-400'
         }`}
       >

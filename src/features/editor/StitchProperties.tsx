@@ -12,20 +12,28 @@ const COLORS: { value: string | undefined; labelKey: string }[] = [
   { value: '#1d4ed8', labelKey: 'color.slateBlue' },
 ]
 
-const MARKER_COLOR = '#ea580c'
+// Restrained-but-colored accents for each property icon, so the toolbar
+// doesn't read as an all-gray wall — one muted hue per control, distinct
+// from the others and from the stitch-glyph icons (which stay plain
+// black-on-white/print-style, since those are the actual chart symbols).
+const SIDE_COLOR = '#4338ca' // indigo
+const MARKER_COLOR = '#f97316' // orange
+const MARKER_STROKE = '#c2410c'
+const LAYER_COLOR = '#a21caf' // fuchsia
 
 /** "Properties" toolbar group: override color, side, marker, thread, layer.
- * Always rendered (toolbars stay visible even with nothing selected) —
- * side/marker act on the current selection and are simply inert (dimmed)
- * with none; thread/layer stay fully usable either way since they also
- * manage the pattern's thread/layer list, not just the selection.
+ * Always rendered (toolbars stay visible even with nothing selected), and
+ * every control here is always live: side/marker/thread/layer each carry
+ * an "active" value (mirroring activeColor/activeStitch) that stamps new
+ * stitches, and additionally applies to the current selection when there
+ * is one — never disabled, never dimmed.
  *
  * Icons are deliberately distinct from each other so they don't get
  * confused at a glance: override color is a plain swatch circle, side is
  * a folded-corner square (fold flips which face is "shown"), marker is a
- * solid drop/pin, thread is a wavy strand (its stroke carries the
- * thread's color instead of a filled circle, so it doesn't read as a
- * second color swatch), layer keeps its stacked-sheets glyph.
+ * solid drop/pin, thread is a wound yarn ball with a smooth strand
+ * (stroked in the thread's own color, so it reads as "thread" rather
+ * than a second color swatch), layer keeps its stacked-sheets glyph.
  *
  * Interaction contract, matching the rest of the toolbar: tap picks from
  * a quick-select list; long-press or right-click opens a settings popup
@@ -37,10 +45,14 @@ export function StitchProperties() {
     activeColor,
     setActiveColor,
     selectedStitchIds,
-    toggleSelectedSide,
-    toggleSelectedMarker,
-    setSelectedThread,
-    setSelectedLayer,
+    activeSide,
+    activeMarker,
+    activeThread,
+    activeLayer,
+    toggleSide,
+    toggleMarker,
+    setThread,
+    setLayer,
     addThread,
     renameThread,
     setThreadColor,
@@ -68,16 +80,21 @@ export function StitchProperties() {
 
   const currentColor = COLORS.find((c) => c.value === activeColor) ?? COLORS[0]
 
-  const hasSelection = selectedStitchIds.length > 0
+  // With a selection, these controls show (and edit) the current
+  // stitch's own values; with none, they show (and edit) the active
+  // defaults that will be stamped onto the next new stitch — either
+  // way there's always a concrete value to display, never a gap.
   const currentId = selectedStitchIds[selectedStitchIds.length - 1]
   const current = pattern.stitches.find((s) => s.id === currentId)
-  const currentSide = current?.side ?? 'right'
-  const currentMarker = current?.marker ?? false
+  const displaySide = current?.side ?? activeSide
+  const displayMarker = current?.marker ?? activeMarker
 
+  const displayThreadId = current?.thread ?? activeThread
+  const displayLayerId = current?.layer ?? activeLayer
   const currentThread =
-    pattern.threads.find((th) => th.id === current?.thread) ?? pattern.threads[0]
+    pattern.threads.find((th) => th.id === displayThreadId) ?? pattern.threads[0]
   const currentLayer =
-    pattern.layers.find((l) => l.id === current?.layer) ?? pattern.layers[0]
+    pattern.layers.find((l) => l.id === displayLayerId) ?? pattern.layers[0]
 
   return (
     <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-zinc-100 pt-2">
@@ -142,62 +159,65 @@ export function StitchProperties() {
       </div>
 
       {/* Side: folded-corner square. Right side shows the face filled;
-          wrong side flips it — the folded flap fills instead. */}
+          wrong side flips it — the folded flap fills instead. Always
+          active: with a selection it flips that selection, with none it
+          sets what the next new stitch will use. */}
       <button
         type="button"
         data-help-id="properties.side"
-        onClick={toggleSelectedSide}
+        onClick={toggleSide}
         aria-label={t('editor.side')}
+        aria-pressed={displaySide === 'wrong'}
         title={`${t('editor.side')}: ${
-          currentSide === 'right' ? t('editor.sideRightShort') : t('editor.sideWrongShort')
+          displaySide === 'right' ? t('editor.sideRightShort') : t('editor.sideWrongShort')
         }`}
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-zinc-300 ${
-          hasSelection ? '' : 'opacity-40'
-        }`}
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-zinc-300"
       >
         <svg viewBox="0 0 20 20" className="h-4 w-4">
           <path
             d="M3 3h9l5 5v9H3z"
-            fill={currentSide === 'right' ? '#18181b' : 'none'}
-            stroke="#3f3f46"
+            fill={displaySide === 'right' ? SIDE_COLOR : 'none'}
+            stroke={SIDE_COLOR}
             strokeWidth="1.3"
             strokeLinejoin="round"
           />
           <path
             d="M12 3l5 5h-5z"
-            fill={currentSide === 'wrong' ? '#18181b' : '#fff'}
-            stroke="#3f3f46"
+            fill={displaySide === 'wrong' ? SIDE_COLOR : '#fff'}
+            stroke={SIDE_COLOR}
             strokeWidth="1.3"
             strokeLinejoin="round"
           />
         </svg>
       </button>
 
-      {/* Marker: a plain drop/pin, orange when set. */}
+      {/* Marker: a plain drop/pin, orange when set. Always active, same
+          selection-or-default rule as side above. */}
       <button
         type="button"
         data-help-id="properties.marker"
-        onClick={toggleSelectedMarker}
+        onClick={toggleMarker}
         aria-label={t('editor.marker')}
-        aria-pressed={currentMarker}
+        aria-pressed={displayMarker}
         title={t('editor.marker')}
         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md border ${
-          currentMarker ? 'border-orange-500 bg-orange-50' : 'border-zinc-300'
-        } ${hasSelection ? '' : 'opacity-40'}`}
+          displayMarker ? 'border-orange-500 bg-orange-50' : 'border-zinc-300'
+        }`}
       >
         <svg viewBox="0 0 20 20" className="h-4 w-4">
           <path
             d="M10 2.5a5.5 5.5 0 00-5.5 5.5c0 4.2 5.5 9.5 5.5 9.5s5.5-5.3 5.5-9.5A5.5 5.5 0 0010 2.5z"
-            fill={currentMarker ? MARKER_COLOR : 'none'}
-            stroke={currentMarker ? '#c2410c' : '#a1a1aa'}
+            fill={displayMarker ? MARKER_COLOR : 'none'}
+            stroke={displayMarker ? MARKER_STROKE : '#a1a1aa'}
             strokeWidth="1.4"
             strokeLinejoin="round"
           />
         </svg>
       </button>
 
-      {/* Thread: a wavy strand, stroked in the thread's own color, so it
-          never reads as another color-swatch circle. */}
+      {/* Thread: a wound yarn ball with a smooth strand running off it,
+          stroked/filled in the thread's own color — reads as "thread",
+          not as another flat color-swatch circle. */}
       <div className="relative shrink-0">
         <button
           type="button"
@@ -207,11 +227,30 @@ export function StitchProperties() {
           title={`${t('editor.thread')}: ${currentThread?.name ?? ''}`}
           className="flex h-9 w-9 items-center justify-center rounded-md border border-zinc-300 select-none"
         >
-          <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" strokeLinecap="round" strokeLinejoin="round">
+          <svg viewBox="0 0 20 20" className="h-4 w-4">
+            <circle cx="5.5" cy="14.5" r="3.4" fill={currentThread?.color ?? '#18181b'} />
             <path
-              d="M2.5 15 6 5l4 10 4-10 3.5 10"
+              d="M2.3 13.2c1.8 2 4.6 2 6.4 0"
+              fill="none"
+              stroke="#fff"
+              strokeOpacity="0.55"
+              strokeWidth="0.9"
+              strokeLinecap="round"
+            />
+            <path
+              d="M2.6 16.1c1.6-1.7 4.4-1.7 6 0"
+              fill="none"
+              stroke="#fff"
+              strokeOpacity="0.55"
+              strokeWidth="0.9"
+              strokeLinecap="round"
+            />
+            <path
+              d="M7.6 12.8c2-2.2 1.6-4.9 3.2-6.8 1.3-1.6 3.3-2 5.4-1.6"
+              fill="none"
               stroke={currentThread?.color ?? '#18181b'}
-              strokeWidth="1.8"
+              strokeWidth="1.6"
+              strokeLinecap="round"
             />
           </svg>
         </button>
@@ -230,11 +269,11 @@ export function StitchProperties() {
                   key={th.id}
                   type="button"
                   onClick={() => {
-                    setSelectedThread(th.id)
+                    setThread(th.id)
                     setThreadListOpen(false)
                   }}
                   className={`flex w-full items-center gap-2 border-b border-zinc-100 px-3 py-2 text-left text-sm last:border-b-0 ${
-                    current?.thread === th.id ? 'bg-zinc-100 text-zinc-900' : 'text-zinc-700'
+                    displayThreadId === th.id ? 'bg-zinc-100 text-zinc-900' : 'text-zinc-700'
                   }`}
                 >
                   <span
@@ -313,8 +352,14 @@ export function StitchProperties() {
           title={`${t('editor.layer')}: ${currentLayer?.name ?? ''}`}
           className="flex h-9 w-9 items-center justify-center rounded-md border border-zinc-300 select-none"
         >
-          <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.4">
-            <path d="M10 3l7 4-7 4-7-4 7-4z" />
+          <svg
+            viewBox="0 0 20 20"
+            className="h-4 w-4"
+            fill="none"
+            stroke={LAYER_COLOR}
+            strokeWidth="1.4"
+          >
+            <path d="M10 3l7 4-7 4-7-4 7-4z" fill={LAYER_COLOR} fillOpacity="0.25" />
             <path d="M3 11l7 4 7-4" />
           </svg>
         </button>
@@ -333,11 +378,11 @@ export function StitchProperties() {
                   key={l.id}
                   type="button"
                   onClick={() => {
-                    setSelectedLayer(l.id)
+                    setLayer(l.id)
                     setLayerListOpen(false)
                   }}
                   className={`block w-full border-b border-zinc-100 px-3 py-2 text-left text-sm last:border-b-0 ${
-                    current?.layer === l.id ? 'bg-zinc-100 text-zinc-900' : 'text-zinc-700'
+                    displayLayerId === l.id ? 'bg-zinc-100 text-zinc-900' : 'text-zinc-700'
                   }`}
                 >
                   {l.name ?? l.id}

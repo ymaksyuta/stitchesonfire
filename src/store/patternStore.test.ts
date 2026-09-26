@@ -97,23 +97,22 @@ describe('stitch thread/layer/side defaults', () => {
     expect(stitch.side).toBe('right')
   })
 
-  it('defaults a later stitch\'s side from its placement direction relative to the current one', () => {
-    const { beginPaletteDrag, endPaletteDrag } = usePatternStore.getState()
-    beginPaletteDrag('single', undefined, 108, 108) // (3,3), becomes current
-    endPaletteDrag()
+  it('stamps new stitches with the active side/marker, with no selection needed to set them', () => {
+    const { beginPaletteDrag, endPaletteDrag, toggleSide, toggleMarker } =
+      usePatternStore.getState()
+    expect(usePatternStore.getState().activeSide).toBe('right')
+    expect(usePatternStore.getState().activeMarker).toBe(false)
 
-    beginPaletteDrag('single', undefined, 36, 36) // (1,1) — placed to the left
-    endPaletteDrag()
-    const leftward = usePatternStore.getState().pattern.stitches[1]
-    expect(leftward.side).toBe('wrong')
+    toggleSide() // no selection — just changes the active default
+    toggleMarker()
+    expect(usePatternStore.getState().activeSide).toBe('wrong')
+    expect(usePatternStore.getState().activeMarker).toBe(true)
 
-    // re-select the first stitch as current, then place one to its right
-    const first = usePatternStore.getState().pattern.stitches[0]
-    usePatternStore.getState().selectOnly(first.id)
-    beginPaletteDrag('single', undefined, 180, 180) // (5,5) — placed to the right
+    beginPaletteDrag('single', undefined, 36, 36)
     endPaletteDrag()
-    const rightward = usePatternStore.getState().pattern.stitches[2]
-    expect(rightward.side).toBe('right')
+    const stitch = usePatternStore.getState().pattern.stitches[0]
+    expect(stitch.side).toBe('wrong')
+    expect(stitch.marker).toBe(true)
   })
 })
 
@@ -398,23 +397,27 @@ describe('zoom', () => {
 })
 
 describe('stitch properties: thread/layer/side/marker', () => {
-  it('flips side and marker for the whole selection', () => {
+  it('flips side and marker for the whole selection, and updates the active default too', () => {
     const { beginPaletteDrag, endPaletteDrag } = usePatternStore.getState()
     beginPaletteDrag('single', undefined, 36, 36)
     endPaletteDrag()
     const stitch = usePatternStore.getState().pattern.stitches[0]
     usePatternStore.getState().selectOnly(stitch.id)
 
-    usePatternStore.getState().toggleSelectedSide()
+    usePatternStore.getState().toggleSide()
     expect(usePatternStore.getState().pattern.stitches[0].side).toBe('wrong')
-    usePatternStore.getState().toggleSelectedSide()
+    expect(usePatternStore.getState().activeSide).toBe('wrong')
+    usePatternStore.getState().toggleSide()
     expect(usePatternStore.getState().pattern.stitches[0].side).toBe('right')
+    expect(usePatternStore.getState().activeSide).toBe('right')
 
     expect(usePatternStore.getState().pattern.stitches[0].marker).toBeFalsy()
-    usePatternStore.getState().toggleSelectedMarker()
+    usePatternStore.getState().toggleMarker()
     expect(usePatternStore.getState().pattern.stitches[0].marker).toBe(true)
-    usePatternStore.getState().toggleSelectedMarker()
+    expect(usePatternStore.getState().activeMarker).toBe(true)
+    usePatternStore.getState().toggleMarker()
     expect(usePatternStore.getState().pattern.stitches[0].marker).toBe(false)
+    expect(usePatternStore.getState().activeMarker).toBe(false)
   })
 
   it('adds a thread/layer and reassigns the selection to it', () => {
@@ -427,8 +430,9 @@ describe('stitch properties: thread/layer/side/marker', () => {
     usePatternStore.getState().addThread()
     const newThread = usePatternStore.getState().pattern.threads[1]
     expect(newThread).toBeDefined()
-    usePatternStore.getState().setSelectedThread(newThread.id)
+    usePatternStore.getState().setThread(newThread.id)
     expect(usePatternStore.getState().pattern.stitches[0].thread).toBe(newThread.id)
+    expect(usePatternStore.getState().activeThread).toBe(newThread.id)
 
     usePatternStore.getState().renameThread(newThread.id, 'Contrast')
     usePatternStore.getState().setThreadColor(newThread.id, '#ff0000')
@@ -439,8 +443,9 @@ describe('stitch properties: thread/layer/side/marker', () => {
     usePatternStore.getState().addLayer()
     const newLayer = usePatternStore.getState().pattern.layers[1]
     expect(newLayer).toBeDefined()
-    usePatternStore.getState().setSelectedLayer(newLayer.id)
+    usePatternStore.getState().setLayer(newLayer.id)
     expect(usePatternStore.getState().pattern.stitches[0].layer).toBe(newLayer.id)
+    expect(usePatternStore.getState().activeLayer).toBe(newLayer.id)
 
     usePatternStore.getState().setThreadLoopSize(newThread.id, 1.5)
     expect(usePatternStore.getState().pattern.threads[1].turningLoopSize).toBe(1.5)

@@ -15,7 +15,7 @@ export function ToolIcon({ tool }: { tool: Exclude<Tool, null> }) {
           <path
             d="M6 3 L6 20 L10.5 16 L13.5 21.5 L16 20 L13 14.5 L18.5 14 Z"
             fill="white"
-            stroke="#18181b"
+            stroke="#166534"
             strokeWidth="1.5"
             strokeLinejoin="round"
           />
@@ -31,9 +31,9 @@ export function ToolIcon({ tool }: { tool: Exclude<Tool, null> }) {
     case 'move':
       return (
         <svg viewBox="0 0 24 24" className="h-5 w-5">
-          <line x1="4" y1="12" x2="20" y2="12" stroke="#18181b" strokeWidth="2.5" strokeLinecap="round" />
-          <path d="M8 8 L4 12 L8 16" fill="none" stroke="#18181b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M16 8 L20 12 L16 16" fill="none" stroke="#18181b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          <line x1="4" y1="12" x2="20" y2="12" stroke="#6d28d9" strokeWidth="2.5" strokeLinecap="round" />
+          <path d="M8 8 L4 12 L8 16" fill="none" stroke="#6d28d9" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M16 8 L20 12 L16 16" fill="none" stroke="#6d28d9" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       )
   }
