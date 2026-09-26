@@ -219,6 +219,27 @@ inside components.
    string in JSX — see `ToolPalette.tsx` for the pattern), add a comment
    listing the literal values next to where it's built, so the static
    scan below still finds them.
+6. If it opens on `pointerdown`/long-press rather than a plain `onClick`
+   (see `useLongPress.ts`), it's already covered — `HelpInspectMode`
+   intercepts `pointerdown` too, not just `click`, specifically because
+   press-and-hold controls (thread/layer settings, etc.) fire before a
+   `click` event would even exist. If a future control invents a third
+   way to trigger (a native `<select>`, a drag gesture, ...), it likely
+   needs its own line in `HelpInspectMode`'s intercepted event list.
+7. If it's a native `disabled` button, inspect mode can't reach it at
+   all — disabled elements never dispatch pointer/click events, full
+   stop, no JS can intercept what the browser never sends. Use
+   `aria-disabled` + an early return inside the handler instead (see
+   `tools.undo`/`tools.redo` in `ToolPalette.tsx`), so the control stays
+   inspectable.
+8. Any new full-viewport popup backdrop (the `fixed inset-0 z-NN`
+   click-outside-to-close pattern used throughout) must stay under
+   `z-[100]` — that's reserved for the "?" button itself, so it's always
+   clickable through/above whatever else is open (see `HelpButton.tsx`
+   for why). Inspect mode deliberately never closes or opens anything
+   on its own: whatever was open when "?" was pressed stays open for
+   the whole session and is unchanged on exit — it's a transparent
+   overlay on top of the interface, not a reset of it.
 
 `helpRegistry.test.ts` enforces this automatically: it scans `src/`
 for `data-help-id` usages and fails if the registry and the interface

@@ -41,10 +41,10 @@ function App() {
             className="min-w-0 flex-1 rounded-md bg-transparent px-2 py-1 text-lg font-semibold text-zinc-900 focus:bg-zinc-50 focus:outline-none"
           />
         )}
+        <HelpButton />
         <div data-help-id="header.language">
           <LanguageSwitcher />
         </div>
-        <HelpButton />
       </header>
       <main className="flex-1 overflow-hidden p-4" data-help-id="canvas.grid">
         <StitchGrid />

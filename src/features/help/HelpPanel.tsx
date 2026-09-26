@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useHelpStore, highlightHelpElement } from './helpStore'
 import { HELP_ELEMENTS, HELP_HOWTOS } from './helpRegistry'
@@ -7,7 +7,18 @@ export function HelpPanel() {
   const { t } = useTranslation()
   const panelOpen = useHelpStore((s) => s.panelOpen)
   const closePanel = useHelpStore((s) => s.closePanel)
-  const [query, setQuery] = useState('')
+  const query = useHelpStore((s) => s.panelQuery)
+  const setQuery = useHelpStore((s) => s.setPanelQuery)
+  const scrollTop = useHelpStore((s) => s.panelScrollTop)
+  const setScrollTop = useHelpStore((s) => s.setPanelScrollTop)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Restore the scroll position from last time the panel was open —
+  // e.g. right after following a step link, which closes the panel to
+  // reveal and highlight the element it's about.
+  useEffect(() => {
+    if (panelOpen && scrollRef.current) scrollRef.current.scrollTop = scrollTop
+  }, [panelOpen, scrollTop])
 
   if (!panelOpen) return null
 
@@ -34,6 +45,8 @@ export function HelpPanel() {
         role="dialog"
         aria-modal="true"
         aria-label={t('help.title')}
+        ref={scrollRef}
+        onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
         className="fixed inset-x-3 top-1/2 z-50 max-h-[80vh] -translate-y-1/2 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-4 shadow-xl sm:inset-x-auto sm:left-1/2 sm:w-[28rem] sm:-translate-x-1/2"
       >
         <div className="flex items-start justify-between gap-2">

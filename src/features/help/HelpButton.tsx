@@ -1,7 +1,15 @@
 import { useTranslation } from 'react-i18next'
 import { useHelpStore } from './helpStore'
 
-/** Sits next to the language switcher. Tap to enter/exit inspect mode. */
+/**
+ * Sits to the left of the language switcher. Tap to enter/exit inspect
+ * mode. `relative z-[100]`: the header itself has no stacking context,
+ * so any popup's full-viewport `fixed z-30/z-40` close-on-outside-click
+ * backdrop would otherwise paint above this plain in-flow button and
+ * swallow the tap before it ever reaches it — z-[100] keeps this button
+ * (and only this button) clickable no matter what else is open. Keep
+ * this above the highest z-index used by any popup in the app.
+ */
 export function HelpButton() {
   const { t } = useTranslation()
   const inspectMode = useHelpStore((s) => s.inspectMode)
@@ -15,7 +23,7 @@ export function HelpButton() {
       aria-label={t('help.button')}
       aria-pressed={inspectMode}
       title={t('help.button')}
-      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md border text-sm font-semibold ${
+      className={`relative z-[100] flex h-9 w-9 shrink-0 items-center justify-center rounded-md border text-sm font-semibold ${
         inspectMode
           ? 'border-zinc-900 bg-zinc-900 text-white'
           : 'border-zinc-300 text-zinc-700'

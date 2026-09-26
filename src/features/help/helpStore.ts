@@ -17,10 +17,17 @@ interface HelpState {
   openElementHelp: (id: string) => void
   closeElementHelp: () => void
 
-  /** The full searchable help panel (opened from the app menu). */
+  /** The full searchable help panel (opened from the app menu). Query
+   * and scroll position live here, not in local component state, so
+   * reopening the panel after following a link lands back where the
+   * person left off instead of resetting to the top. */
   panelOpen: boolean
   openPanel: () => void
   closePanel: () => void
+  panelQuery: string
+  setPanelQuery: (q: string) => void
+  panelScrollTop: number
+  setPanelScrollTop: (y: number) => void
 }
 
 export const useHelpStore = create<HelpState>((set) => ({
@@ -36,6 +43,10 @@ export const useHelpStore = create<HelpState>((set) => ({
   panelOpen: false,
   openPanel: () => set({ panelOpen: true, inspectMode: false, activeElementId: null }),
   closePanel: () => set({ panelOpen: false }),
+  panelQuery: '',
+  setPanelQuery: (q) => set({ panelQuery: q }),
+  panelScrollTop: 0,
+  setPanelScrollTop: (y) => set({ panelScrollTop: y }),
 }))
 
 /** Scrolls a help-registered element into view and briefly highlights it.

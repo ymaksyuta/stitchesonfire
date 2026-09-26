@@ -42,22 +42,30 @@ export function ToolPalette() {
         <button
           type="button"
           data-help-id="tools.undo"
-          onClick={undo}
-          disabled={history.past.length === 0}
+          onClick={() => {
+            if (history.past.length > 0) undo()
+          }}
+          aria-disabled={history.past.length === 0}
           aria-label={t('editor.undo')}
           title={t('editor.undo')}
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-300 text-zinc-700 disabled:opacity-30"
+          className={`flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-300 text-zinc-700 ${
+            history.past.length === 0 ? 'opacity-30' : ''
+          }`}
         >
           ↶
         </button>
         <button
           type="button"
           data-help-id="tools.redo"
-          onClick={redo}
-          disabled={history.future.length === 0}
+          onClick={() => {
+            if (history.future.length > 0) redo()
+          }}
+          aria-disabled={history.future.length === 0}
           aria-label={t('editor.redo')}
           title={t('editor.redo')}
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-300 text-zinc-700 disabled:opacity-30"
+          className={`flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-300 text-zinc-700 ${
+            history.future.length === 0 ? 'opacity-30' : ''
+          }`}
         >
           ↷
         </button>
