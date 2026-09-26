@@ -35,6 +35,8 @@ export const HELP_ELEMENTS: HelpElementEntry[] = [
   { id: 'menu.newPattern', i18nKey: 'help.element.menuNew' },
   { id: 'menu.export', i18nKey: 'help.element.menuExport' },
   { id: 'menu.myPatterns', i18nKey: 'help.element.menuPatterns' },
+  { id: 'menu.settings', i18nKey: 'help.element.menuSettings' },
+  { id: 'settings.themeSwitcher', i18nKey: 'help.element.themeSwitcher' },
   { id: 'tools.add', i18nKey: 'help.element.toolAdd' },
   { id: 'tools.select', i18nKey: 'help.element.toolSelect' },
   { id: 'tools.delete', i18nKey: 'help.element.toolDelete' },

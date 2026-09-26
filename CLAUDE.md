@@ -395,6 +395,38 @@ test intentionally fails as a reminder.
     previous pattern would otherwise dangle); `resolveThreadId`/
     `resolveLayerId` in `patternStore.ts` guard against that case too.
 
+20. Light/dark/system theming + global Settings window (2026-09-27) ✅:
+    `src/store/settingsStore.ts` holds app-wide (cross-pattern) UI state
+    — currently just `theme: 'light'|'dark'|'system'`, persisted to
+    `localStorage` directly (not pattern data, so not in IndexedDB) —
+    plus `settingsOpen` for the new modal. `src/ThemeEffect.tsx` (mounted
+    once in `App.tsx`) resolves the theme and toggles a `.dark` class on
+    `<html>`, watching `prefers-color-scheme` live while on "system".
+    Tailwind v4 defaults `dark:` to a bare media query; `index.css` opts
+    into class-based theming instead with
+    `@custom-variant dark (&:where(.dark, .dark *));`. `SettingsPanel.tsx`
+    (new "Settings" item in `AppMenu`, opened via `openSettings()`) is the
+    first thing in that window — a 3-icon light/dark/system switcher.
+    Selection is shown with a filled background, never a colored border:
+    every option keeps the same neutral `border-zinc-300`/
+    `dark:border-zinc-600` whether picked or not, so the control itself
+    never introduces an accent color of its own. `dark:` variants were
+    added across the whole app chrome (header/footer, `AppMenu`,
+    `StitchPalette`, `StitchProperties`, all toggle buttons, both Help
+    components) — the canvas itself (`StitchGrid.tsx`'s `bg-white`) and
+    the stitch glyphs stay fixed white/black on purpose, same reasoning
+    as item 19: they're the printable chart, not UI chrome. Two icon
+    legibility fixes landed alongside this: the thread (yarn-ball) icon
+    in `StitchProperties.tsx` grew from r=3.4 to r=6.2 with a third
+    winding arc and a much shorter trailing strand, so it reads clearly
+    as a ball rather than a smudge; the side-toggle folded-corner square
+    got rounded (cubic-curve) corners instead of sharp right angles and
+    its flap enlarged from a 5-unit to a 7-unit corner, both aimed at
+    reading more like a soft fabric fold. Settings menu item and the
+    theme switcher both got `data-help-id`s + registry/i18n entries
+    (`menu.settings`, `settings.themeSwitcher`) per the Interface help
+    workflow below.
+
 ## Known issues
 - "More stitch types" popup: toggling a row *on* closes the popup;
   toggling one *off* does not — should be symmetric either way.

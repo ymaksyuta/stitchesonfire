@@ -27,17 +27,17 @@ export function HelpSearchBar() {
         onChange={(e) => setQuery(e.target.value)}
         placeholder={t('help.searchPlaceholder')}
         aria-label={t('help.searchPlaceholder')}
-        className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm focus:outline-none"
+        className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm focus:outline-none dark:border-zinc-600 dark:bg-zinc-900"
       />
 
       {hasResults && (
-        <div className="absolute left-0 top-full z-40 mt-1 w-full overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg">
+        <div className="absolute left-0 top-full z-40 mt-1 w-full overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
           {elementMatches.map((e) => (
             <button
               key={e.id}
               type="button"
               onClick={() => openElementHelp(e.id)}
-              className="block w-full px-3 py-2 text-left text-sm text-zinc-800 hover:bg-zinc-50"
+              className="block w-full px-3 py-2 text-left text-sm text-zinc-800 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-zinc-800"
             >
               {t(e.i18nKey)}
             </button>
@@ -47,7 +47,7 @@ export function HelpSearchBar() {
               key={h.id}
               type="button"
               onClick={openPanel}
-              className="block w-full border-t border-zinc-100 px-3 py-2 text-left text-sm text-zinc-800 hover:bg-zinc-50"
+              className="block w-full border-t border-zinc-100 px-3 py-2 text-left text-sm text-zinc-800 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-800"
             >
               {t(h.titleKey)}
             </button>

@@ -28,8 +28,8 @@ export function SideContrastToggle() {
         title={t('editor.sideContrast')}
         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md border select-none ${
           showSideContrast
-            ? 'border-zinc-900 text-zinc-900'
-            : 'border-zinc-300 text-zinc-400'
+            ? 'border-zinc-900 text-zinc-900 dark:border-zinc-100 dark:text-zinc-100'
+            : 'border-zinc-300 text-zinc-400 dark:border-zinc-600 dark:text-zinc-500'
         }`}
       >
         <svg viewBox="0 0 20 20" className="h-4 w-4">
@@ -46,8 +46,8 @@ export function SideContrastToggle() {
             onClick={() => setOpen(false)}
             className="fixed inset-0 z-30 cursor-default touch-none"
           />
-          <div className="absolute bottom-full left-1/2 z-40 mb-2 w-36 -translate-x-1/2 rounded-md border border-zinc-200 bg-white p-3 shadow-lg">
-            <p className="mb-1 text-xs text-zinc-500 select-none">{t('editor.sideContrastAmount')}</p>
+          <div className="absolute bottom-full left-1/2 z-40 mb-2 w-36 -translate-x-1/2 rounded-md border border-zinc-200 bg-white p-3 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+            <p className="mb-1 text-xs text-zinc-500 select-none dark:text-zinc-400">{t('editor.sideContrastAmount')}</p>
             <input
               type="range"
               min={0.05}

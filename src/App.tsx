@@ -5,6 +5,8 @@ import { usePatternStore } from './store/patternStore'
 import { AppMenu } from './components/AppMenu'
 import { InfoButton } from './components/InfoButton'
 import { LanguageSwitcher } from './components/LanguageSwitcher'
+import { SettingsPanel } from './components/SettingsPanel'
+import { ThemeEffect } from './ThemeEffect'
 import { HelpButton } from './features/help/HelpButton'
 import { HelpSearchBar } from './features/help/HelpSearchBar'
 import { HelpInspectMode } from './features/help/HelpInspectMode'
@@ -22,8 +24,8 @@ function App() {
   }
 
   return (
-    <div className="flex h-full flex-col bg-zinc-100">
-      <header className="flex items-center gap-2 border-b border-zinc-200 bg-white px-3 py-2">
+    <div className="flex h-full flex-col bg-zinc-100 dark:bg-zinc-950">
+      <header className="flex items-center gap-2 border-b border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900">
         <div data-help-id="header.menu">
           <AppMenu />
         </div>
@@ -38,7 +40,7 @@ function App() {
             onBlur={handleNameBlur}
             placeholder={t('editor.untitled')}
             aria-label={t('editor.untitled')}
-            className="min-w-0 flex-1 rounded-md bg-transparent px-2 py-1 text-lg font-semibold text-zinc-900 focus:bg-zinc-50 focus:outline-none"
+            className="min-w-0 flex-1 rounded-md bg-transparent px-2 py-1 text-lg font-semibold text-zinc-900 focus:bg-zinc-50 focus:outline-none dark:text-zinc-100 dark:focus:bg-zinc-800"
           />
         )}
         <HelpButton />
@@ -49,13 +51,15 @@ function App() {
       <main className="flex-1 overflow-hidden p-4" data-help-id="canvas.grid">
         <StitchGrid />
       </main>
-      <footer className="border-t border-zinc-200 bg-white">
+      <footer className="border-t border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
         <StitchPalette />
       </footer>
 
       <HelpInspectMode />
       <HelpElementPopup />
       <HelpPanel />
+      <SettingsPanel />
+      <ThemeEffect />
     </div>
   )
 }

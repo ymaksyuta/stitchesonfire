@@ -11,18 +11,18 @@ export function ZoomControl() {
         type="button"
         onClick={() => setZoom(zoom - 0.25)}
         aria-label={t('editor.zoomOut')}
-        className="h-6 w-6 rounded-md border border-zinc-300 text-zinc-700"
+        className="h-6 w-6 rounded-md border border-zinc-300 text-zinc-700 dark:border-zinc-600 dark:text-zinc-300"
       >
         −
       </button>
-      <span className="w-10 text-center text-xs text-zinc-500">
+      <span className="w-10 text-center text-xs text-zinc-500 dark:text-zinc-400">
         {Math.round(zoom * 100)}%
       </span>
       <button
         type="button"
         onClick={() => setZoom(zoom + 0.25)}
         aria-label={t('editor.zoomIn')}
-        className="h-6 w-6 rounded-md border border-zinc-300 text-zinc-700"
+        className="h-6 w-6 rounded-md border border-zinc-300 text-zinc-700 dark:border-zinc-600 dark:text-zinc-300"
       >
         +
       </button>

@@ -120,14 +120,14 @@ export function StitchPalette() {
                 aria-label={t(LABELS[type])}
                 className={`flex h-11 w-11 touch-none items-center justify-center rounded-lg border select-none ${
                   activeStitch === type
-                    ? 'border-zinc-900 bg-zinc-900 text-white'
-                    : 'border-zinc-300 bg-white text-zinc-700'
+                    ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'
+                    : 'border-zinc-300 bg-white text-zinc-700 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-300'
                 }`}
               >
                 <StitchIcon type={type} variantId={pattern.glyphVariants?.[type]} />
               </button>
               {tooltipType === type && (
-                <div className="pointer-events-none absolute bottom-full left-1/2 mb-1 -translate-x-1/2 rounded bg-zinc-900 px-2 py-1 text-xs whitespace-nowrap text-white shadow-lg">
+                <div className="pointer-events-none absolute bottom-full left-1/2 mb-1 -translate-x-1/2 rounded bg-zinc-900 px-2 py-1 text-xs whitespace-nowrap text-white shadow-lg dark:bg-zinc-100 dark:text-zinc-900">
                   {t(LABELS[type])}
                 </div>
               )}
@@ -145,7 +145,7 @@ export function StitchPalette() {
             }}
             aria-label={t('editor.moreStitchTypes')}
             aria-expanded={pickerOpen}
-            className="flex h-11 w-11 items-center justify-center rounded-lg border border-zinc-300 bg-white text-zinc-700"
+            className="flex h-11 w-11 items-center justify-center rounded-lg border border-zinc-300 bg-white text-zinc-700 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-300"
           >
             <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor">
               <circle cx="4" cy="10" r="1.6" />
@@ -165,7 +165,7 @@ export function StitchPalette() {
                 }}
                 className="fixed inset-0 z-30 cursor-default touch-none"
               />
-              <div className="absolute bottom-full left-0 z-40 mb-1 w-56 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg">
+              <div className="absolute bottom-full left-0 z-40 mb-1 w-56 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
                 {ALL_STITCH_TYPES.map((type) => {
                   const visible = visibleStitchTypes.includes(type)
                   const variants = GLYPH_VARIANTS[type]
@@ -207,11 +207,11 @@ export function StitchPalette() {
                           rowLongPressTimer.current = null
                           if (hasVariants) setVariantPickerFor(type)
                         }}
-                        className="flex w-full items-center gap-2 border-t border-zinc-100 px-3 py-2 text-left text-sm text-zinc-800 select-none hover:bg-zinc-50"
+                        className="flex w-full items-center gap-2 border-t border-zinc-100 px-3 py-2 text-left text-sm text-zinc-800 select-none hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-800"
                       >
                         <span
                           className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
-                            visible ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-zinc-300'
+                            visible ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900' : 'border-zinc-300 dark:border-zinc-600'
                           }`}
                         >
                           {visible && (
@@ -232,7 +232,7 @@ export function StitchPalette() {
                             onClick={() => setVariantPickerFor(null)}
                             className="fixed inset-0 z-40 cursor-default touch-none"
                           />
-                          <div className="absolute left-full top-0 z-50 ml-1 w-44 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg">
+                          <div className="absolute left-full top-0 z-50 ml-1 w-44 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
                             {variants.map((variant) => (
                               <button
                                 key={variant.id}
@@ -245,8 +245,8 @@ export function StitchPalette() {
                                 }}
                                 className={`flex w-full items-center gap-2 border-t border-zinc-100 px-3 py-2 text-left text-sm first:border-t-0 ${
                                   variant.id === selectedVariantId
-                                    ? 'bg-zinc-100 text-zinc-900'
-                                    : 'text-zinc-700 hover:bg-zinc-50'
+                                    ? 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100'
+                                    : 'text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800'
                                 }`}
                               >
                                 <StitchIcon type={type} variantId={variant.id} />
@@ -276,7 +276,7 @@ export function StitchPalette() {
 
       {dragPreview && (
         <div
-          className="pointer-events-none fixed z-50 flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-900 bg-white/90 text-zinc-900 shadow-lg"
+          className="pointer-events-none fixed z-50 flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-900 bg-white/90 text-zinc-900 shadow-lg dark:border-zinc-100 dark:bg-zinc-900/90 dark:text-zinc-100"
           style={{ left: dragPreview.clientX, top: dragPreview.clientY }}
         >
           <StitchIcon type={dragPreview.type} variantId={pattern.glyphVariants?.[dragPreview.type]} />

@@ -24,13 +24,13 @@ export function HelpElementPopup() {
         role="dialog"
         aria-modal="true"
         data-help-toggle="true"
-        className="fixed inset-x-3 bottom-3 z-50 rounded-lg border border-zinc-200 bg-white p-4 shadow-xl"
+        className="fixed inset-x-3 bottom-3 z-50 rounded-lg border border-zinc-200 bg-white p-4 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
       >
-        <p className="text-sm text-zinc-700">{t(entry.i18nKey)}</p>
+        <p className="text-sm text-zinc-700 dark:text-zinc-300">{t(entry.i18nKey)}</p>
         <button
           type="button"
           onClick={closeElementHelp}
-          className="mt-3 text-sm font-medium text-zinc-900 underline underline-offset-2"
+          className="mt-3 text-sm font-medium text-zinc-900 underline underline-offset-2 dark:text-zinc-100"
         >
           {t('help.close')}
         </button>

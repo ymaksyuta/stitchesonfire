@@ -25,8 +25,8 @@ export function HelpButton() {
       title={t('help.button')}
       className={`relative z-[100] flex h-9 w-9 shrink-0 items-center justify-center rounded-md border text-sm font-semibold ${
         inspectMode
-          ? 'border-zinc-900 bg-zinc-900 text-white'
-          : 'border-zinc-300 text-zinc-700'
+          ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'
+          : 'border-zinc-300 text-zinc-700 dark:border-zinc-600 dark:text-zinc-300'
       }`}
     >
       ?

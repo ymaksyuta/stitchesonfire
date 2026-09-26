@@ -31,8 +31,8 @@ export function ToolPalette() {
           title={t(labelKey)}
           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${
             activeTool === tool
-              ? 'border-zinc-900 bg-zinc-100'
-              : 'border-zinc-300 bg-white'
+              ? 'border-zinc-900 bg-zinc-100 dark:border-zinc-100 dark:bg-zinc-800'
+              : 'border-zinc-300 bg-white dark:border-zinc-600 dark:bg-zinc-900'
           }`}
         >
           <ToolIcon tool={tool} />

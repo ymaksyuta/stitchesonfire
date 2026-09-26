@@ -24,10 +24,10 @@ export function LanguageSwitcher() {
         onClick={() => setOpen((o) => !o)}
         aria-label="Language"
         aria-expanded={open}
-        className="flex h-9 items-center gap-1 rounded-md border border-zinc-300 px-2 text-lg leading-none"
+        className="flex h-9 items-center gap-1 rounded-md border border-zinc-300 px-2 text-lg leading-none dark:border-zinc-600"
       >
         <span aria-hidden="true">{current.flag}</span>
-        <svg viewBox="0 0 20 20" className="h-3 w-3 fill-zinc-500">
+        <svg viewBox="0 0 20 20" className="h-3 w-3 fill-zinc-500 dark:fill-zinc-400">
           <path d="M5 7l5 6 5-6z" />
         </svg>
       </button>
@@ -43,7 +43,7 @@ export function LanguageSwitcher() {
           <div
             role="listbox"
             aria-label="Language"
-            className="absolute right-0 top-full z-40 mt-1 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg"
+            className="absolute right-0 top-full z-40 mt-1 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
           >
             {LANGUAGES.map((lang) => (
               <button
@@ -55,8 +55,8 @@ export function LanguageSwitcher() {
                 title={lang.name}
                 className={`flex w-full items-center gap-2 px-3 py-2 text-sm whitespace-nowrap ${
                   lang.code === current.code
-                    ? 'bg-zinc-100 text-zinc-900'
-                    : 'text-zinc-700 hover:bg-zinc-50'
+                    ? 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100'
+                    : 'text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800'
                 }`}
               >
                 <span aria-hidden="true" className="text-lg leading-none">

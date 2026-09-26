@@ -26,7 +26,7 @@ export function SequenceToggle() {
         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md border select-none ${
           showSequence
             ? 'border-amber-700 text-amber-700'
-            : 'border-zinc-300 text-zinc-400'
+            : 'border-zinc-300 text-zinc-400 dark:border-zinc-600 dark:text-zinc-500'
         }`}
       >
         <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
@@ -43,8 +43,8 @@ export function SequenceToggle() {
             onClick={() => setOpen(false)}
             className="fixed inset-0 z-30 cursor-default touch-none"
           />
-          <div className="absolute bottom-full left-1/2 z-40 mb-2 w-36 -translate-x-1/2 rounded-md border border-zinc-200 bg-white p-3 shadow-lg">
-            <p className="mb-1 text-xs text-zinc-500 select-none">{t('editor.sequenceBrightness')}</p>
+          <div className="absolute bottom-full left-1/2 z-40 mb-2 w-36 -translate-x-1/2 rounded-md border border-zinc-200 bg-white p-3 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+            <p className="mb-1 text-xs text-zinc-500 select-none dark:text-zinc-400">{t('editor.sequenceBrightness')}</p>
             <input
               type="range"
               min={0.05}

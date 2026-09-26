@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* Tailwind v4 defaults `dark:` to a media-query (prefers-color-scheme).
+   We drive theme from a class on <html> instead (light/dark/system are
+   all user-selectable in Settings, not just the OS preference), so this
+   custom variant switches `dark:` to match `.dark` on <html> or an
+   ancestor. See src/store/settingsStore.ts + src/ThemeEffect.tsx. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 html,
 body,
 #root {
@@ -10,6 +17,19 @@ body {
   margin: 0;
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior: none;
+  background-color: #f4f4f5; /* zinc-100, matches the app root's light bg */
+}
+
+/* Lets native form controls (checkboxes, scrollbars, etc.) and the
+   mobile overscroll/bounce area pick the right light/dark rendering. */
+html {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
+}
+html.dark body {
+  background-color: #09090b; /* zinc-950, matches the app root's dark bg */
 }
 
 /* Help "?" inspect mode — see src/features/help */
@@ -19,6 +39,9 @@ body {
 .help-inspect-mode [data-help-id]:hover {
   outline: 2px dashed #18181b;
   outline-offset: 2px;
+}
+.dark .help-inspect-mode [data-help-id]:hover {
+  outline-color: #f4f4f5;
 }
 .help-highlight {
   outline: 3px solid #f59e0b;

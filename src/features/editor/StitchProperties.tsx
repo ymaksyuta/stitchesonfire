@@ -97,7 +97,7 @@ export function StitchProperties() {
     pattern.layers.find((l) => l.id === displayLayerId) ?? pattern.layers[0]
 
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-zinc-100 pt-2">
+    <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-zinc-100 pt-2 dark:border-zinc-800">
       {/* Override color */}
       <div className="relative shrink-0">
         <button
@@ -106,13 +106,13 @@ export function StitchProperties() {
           onClick={() => setColorOpen((o) => !o)}
           aria-label={t(currentColor.labelKey)}
           aria-expanded={colorOpen}
-          className="flex h-9 items-center gap-2 rounded-md border border-zinc-300 px-2"
+          className="flex h-9 items-center gap-2 rounded-md border border-zinc-300 px-2 dark:border-zinc-600"
         >
           <span
-            className="h-5 w-5 shrink-0 rounded-full border border-zinc-200"
+            className="h-5 w-5 shrink-0 rounded-full border border-zinc-200 dark:border-zinc-700"
             style={{ backgroundColor: currentColor.value ?? '#18181b' }}
           />
-          <svg viewBox="0 0 20 20" className="h-3 w-3 fill-zinc-500">
+          <svg viewBox="0 0 20 20" className="h-3 w-3 fill-zinc-500 dark:fill-zinc-400">
             <path d="M5 7l5 6 5-6z" />
           </svg>
         </button>
@@ -128,7 +128,7 @@ export function StitchProperties() {
             <div
               role="listbox"
               aria-label={t('color.default')}
-              className="absolute bottom-full left-0 z-40 mb-1 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg"
+              className="absolute bottom-full left-0 z-40 mb-1 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
             >
               {COLORS.map(({ value, labelKey }) => (
                 <button
@@ -142,12 +142,12 @@ export function StitchProperties() {
                   }}
                   className={`flex w-full items-center gap-2 px-3 py-2 text-sm whitespace-nowrap ${
                     activeColor === value
-                      ? 'bg-zinc-100 text-zinc-900'
-                      : 'text-zinc-700 hover:bg-zinc-50'
+                      ? 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100'
+                      : 'text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800'
                   }`}
                 >
                   <span
-                    className="h-4 w-4 shrink-0 rounded-full border border-zinc-200"
+                    className="h-4 w-4 shrink-0 rounded-full border border-zinc-200 dark:border-zinc-700"
                     style={{ backgroundColor: value ?? '#18181b' }}
                   />
                   {t(labelKey)}
@@ -171,19 +171,23 @@ export function StitchProperties() {
         title={`${t('editor.side')}: ${
           displaySide === 'right' ? t('editor.sideRightShort') : t('editor.sideWrongShort')
         }`}
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-zinc-300"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-zinc-300 dark:border-zinc-600"
       >
         <svg viewBox="0 0 20 20" className="h-4 w-4">
+          {/* Body: rounded corners on the three plain sides, cloth-like
+              curved (not sharp-angled) fold line cut into the top-right
+              corner. Flap area enlarged (was a 5-unit corner, now 7) so
+              the "turned-back fabric corner" reads clearly at icon size. */}
           <path
-            d="M3 3h9l5 5v9H3z"
+            d="M6 3H10C13.5 3 17 6.5 17 10V14C17 15.66 15.66 17 14 17H6C4.34 17 3 15.66 3 14V6C3 4.34 4.34 3 6 3Z"
             fill={displaySide === 'right' ? SIDE_COLOR : 'none'}
             stroke={SIDE_COLOR}
             strokeWidth="1.3"
             strokeLinejoin="round"
           />
           <path
-            d="M12 3l5 5h-5z"
-            fill={displaySide === 'wrong' ? SIDE_COLOR : '#fff'}
+            d="M10 3C13.5 3 17 6.5 17 10L10 10Z"
+            fill={displaySide === 'wrong' ? SIDE_COLOR : 'none'}
             stroke={SIDE_COLOR}
             strokeWidth="1.3"
             strokeLinejoin="round"
@@ -201,7 +205,9 @@ export function StitchProperties() {
         aria-pressed={displayMarker}
         title={t('editor.marker')}
         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md border ${
-          displayMarker ? 'border-orange-500 bg-orange-50' : 'border-zinc-300'
+          displayMarker
+            ? 'border-orange-500 bg-orange-50 dark:border-orange-400 dark:bg-orange-950'
+            : 'border-zinc-300 dark:border-zinc-600'
         }`}
       >
         <svg viewBox="0 0 20 20" className="h-4 w-4">
@@ -217,7 +223,9 @@ export function StitchProperties() {
 
       {/* Thread: a wound yarn ball with a smooth strand running off it,
           stroked/filled in the thread's own color — reads as "thread",
-          not as another flat color-swatch circle. */}
+          not as another flat color-swatch circle. Ball is sized to
+          dominate the icon (vs. the strand) so it clearly reads as a
+          ball of yarn rather than an ambiguous blob. */}
       <div className="relative shrink-0">
         <button
           type="button"
@@ -225,28 +233,36 @@ export function StitchProperties() {
           {...threadLongPress}
           aria-label={`${t('editor.thread')}: ${currentThread?.name ?? ''}`}
           title={`${t('editor.thread')}: ${currentThread?.name ?? ''}`}
-          className="flex h-9 w-9 items-center justify-center rounded-md border border-zinc-300 select-none"
+          className="flex h-9 w-9 items-center justify-center rounded-md border border-zinc-300 select-none dark:border-zinc-600"
         >
           <svg viewBox="0 0 20 20" className="h-4 w-4">
-            <circle cx="5.5" cy="14.5" r="3.4" fill={currentThread?.color ?? '#18181b'} />
+            <circle cx="9.5" cy="11.5" r="6.2" fill={currentThread?.color ?? '#18181b'} />
             <path
-              d="M2.3 13.2c1.8 2 4.6 2 6.4 0"
+              d="M4.6 8.3c2.4-1.7 7.4-1.7 9.8 0"
               fill="none"
               stroke="#fff"
               strokeOpacity="0.55"
-              strokeWidth="0.9"
+              strokeWidth="1"
               strokeLinecap="round"
             />
             <path
-              d="M2.6 16.1c1.6-1.7 4.4-1.7 6 0"
+              d="M3.6 11.7c2.9-2 8.9-2 11.8 0"
               fill="none"
               stroke="#fff"
               strokeOpacity="0.55"
-              strokeWidth="0.9"
+              strokeWidth="1"
               strokeLinecap="round"
             />
             <path
-              d="M7.6 12.8c2-2.2 1.6-4.9 3.2-6.8 1.3-1.6 3.3-2 5.4-1.6"
+              d="M4.6 15.1c2.4 1.7 7.4 1.7 9.8 0"
+              fill="none"
+              stroke="#fff"
+              strokeOpacity="0.55"
+              strokeWidth="1"
+              strokeLinecap="round"
+            />
+            <path
+              d="M13 7.3c1.3-1.7 3-2.3 4.6-2"
               fill="none"
               stroke={currentThread?.color ?? '#18181b'}
               strokeWidth="1.6"
@@ -263,7 +279,7 @@ export function StitchProperties() {
               onClick={() => setThreadListOpen(false)}
               className="fixed inset-0 z-30 cursor-default touch-none"
             />
-            <div className="absolute bottom-full left-0 z-40 mb-1 w-48 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg">
+            <div className="absolute bottom-full left-0 z-40 mb-1 w-48 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
               {pattern.threads.map((th) => (
                 <button
                   key={th.id}
@@ -273,11 +289,11 @@ export function StitchProperties() {
                     setThreadListOpen(false)
                   }}
                   className={`flex w-full items-center gap-2 border-b border-zinc-100 px-3 py-2 text-left text-sm last:border-b-0 ${
-                    displayThreadId === th.id ? 'bg-zinc-100 text-zinc-900' : 'text-zinc-700'
+                    displayThreadId === th.id ? 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100' : 'text-zinc-700 dark:text-zinc-300'
                   }`}
                 >
                   <span
-                    className="h-4 w-4 shrink-0 rounded-full border border-zinc-200"
+                    className="h-4 w-4 shrink-0 rounded-full border border-zinc-200 dark:border-zinc-700"
                     style={{ backgroundColor: th.color }}
                   />
                   <span className="truncate">{th.name ?? th.id}</span>
@@ -289,7 +305,7 @@ export function StitchProperties() {
                   addThread()
                   setThreadListOpen(false)
                 }}
-                className="w-full px-3 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50"
+                className="w-full px-3 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
               >
                 + {t('editor.addThread')}
               </button>
@@ -305,23 +321,23 @@ export function StitchProperties() {
               onClick={() => setThreadSettingsOpen(false)}
               className="fixed inset-0 z-30 cursor-default touch-none"
             />
-            <div className="absolute bottom-full left-0 z-40 mb-1 w-56 space-y-2 rounded-md border border-zinc-200 bg-white p-3 shadow-lg">
+            <div className="absolute bottom-full left-0 z-40 mb-1 w-56 space-y-2 rounded-md border border-zinc-200 bg-white p-3 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
               <input
                 value={currentThread.name ?? ''}
                 onChange={(e) => renameThread(currentThread.id, e.target.value)}
                 placeholder={t('editor.thread')}
-                className="w-full rounded border border-zinc-200 px-2 py-1 text-sm"
+                className="w-full rounded border border-zinc-200 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
               />
-              <label className="flex items-center justify-between text-xs text-zinc-500">
+              <label className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
                 {t('editor.threadColor')}
                 <input
                   type="color"
                   value={currentThread.color}
                   onChange={(e) => setThreadColor(currentThread.id, e.target.value)}
-                  className="h-6 w-10 shrink-0 rounded border border-zinc-200"
+                  className="h-6 w-10 shrink-0 rounded border border-zinc-200 dark:border-zinc-700"
                 />
               </label>
-              <label className="flex items-center justify-between text-xs text-zinc-500">
+              <label className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
                 {t('editor.loopSize')}
                 <input
                   type="number"
@@ -334,7 +350,7 @@ export function StitchProperties() {
                       e.target.value === '' ? undefined : Number(e.target.value),
                     )
                   }
-                  className="w-16 shrink-0 rounded border border-zinc-200 px-2 py-1 text-right text-sm"
+                  className="w-16 shrink-0 rounded border border-zinc-200 px-2 py-1 text-right text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                 />
               </label>
             </div>
@@ -350,7 +366,7 @@ export function StitchProperties() {
           {...layerLongPress}
           aria-label={`${t('editor.layer')}: ${currentLayer?.name ?? ''}`}
           title={`${t('editor.layer')}: ${currentLayer?.name ?? ''}`}
-          className="flex h-9 w-9 items-center justify-center rounded-md border border-zinc-300 select-none"
+          className="flex h-9 w-9 items-center justify-center rounded-md border border-zinc-300 select-none dark:border-zinc-600"
         >
           <svg
             viewBox="0 0 20 20"
@@ -372,7 +388,7 @@ export function StitchProperties() {
               onClick={() => setLayerListOpen(false)}
               className="fixed inset-0 z-30 cursor-default touch-none"
             />
-            <div className="absolute bottom-full left-0 z-40 mb-1 w-48 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg">
+            <div className="absolute bottom-full left-0 z-40 mb-1 w-48 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
               {pattern.layers.map((l) => (
                 <button
                   key={l.id}
@@ -382,7 +398,7 @@ export function StitchProperties() {
                     setLayerListOpen(false)
                   }}
                   className={`block w-full border-b border-zinc-100 px-3 py-2 text-left text-sm last:border-b-0 ${
-                    displayLayerId === l.id ? 'bg-zinc-100 text-zinc-900' : 'text-zinc-700'
+                    displayLayerId === l.id ? 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100' : 'text-zinc-700 dark:text-zinc-300'
                   }`}
                 >
                   {l.name ?? l.id}
@@ -394,7 +410,7 @@ export function StitchProperties() {
                   addLayer()
                   setLayerListOpen(false)
                 }}
-                className="w-full px-3 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50"
+                className="w-full px-3 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
               >
                 + {t('editor.addLayer')}
               </button>
@@ -410,12 +426,12 @@ export function StitchProperties() {
               onClick={() => setLayerSettingsOpen(false)}
               className="fixed inset-0 z-30 cursor-default touch-none"
             />
-            <div className="absolute bottom-full left-0 z-40 mb-1 w-60 space-y-2 rounded-md border border-zinc-200 bg-white p-3 shadow-lg">
+            <div className="absolute bottom-full left-0 z-40 mb-1 w-60 space-y-2 rounded-md border border-zinc-200 bg-white p-3 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
               <input
                 value={currentLayer.name ?? ''}
                 onChange={(e) => renameLayer(currentLayer.id, e.target.value)}
                 placeholder={t('editor.layer')}
-                className="w-full rounded border border-zinc-200 px-2 py-1 text-sm"
+                className="w-full rounded border border-zinc-200 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
               />
 
               <div className="flex gap-1">
@@ -426,8 +442,8 @@ export function StitchProperties() {
                     onClick={() => setLayerGridKind(currentLayer.id, kind)}
                     className={`flex-1 rounded border px-2 py-1 text-xs ${
                       currentLayer.grid.kind === kind
-                        ? 'border-zinc-900 bg-zinc-900 text-white'
-                        : 'border-zinc-300 text-zinc-700'
+                        ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'
+                        : 'border-zinc-300 text-zinc-700 dark:border-zinc-600 dark:text-zinc-300'
                     }`}
                   >
                     {kind === 'rectangular' ? t('editor.gridRectangular') : t('editor.gridRadial')}
@@ -435,10 +451,10 @@ export function StitchProperties() {
                 ))}
               </div>
 
-              <p className="pt-1 text-xs text-zinc-400">{t('editor.layerShift')}</p>
+              <p className="pt-1 text-xs text-zinc-400 dark:text-zinc-500">{t('editor.layerShift')}</p>
               <div className="flex gap-2">
                 {(['x', 'y', 'angle'] as const).map((axis) => (
-                  <label key={axis} className="flex-1 text-xs text-zinc-500">
+                  <label key={axis} className="flex-1 text-xs text-zinc-500 dark:text-zinc-400">
                     {axis === 'angle' ? '°' : axis}
                     <input
                       type="number"
@@ -447,7 +463,7 @@ export function StitchProperties() {
                       onChange={(e) =>
                         setLayerShift(currentLayer.id, axis, Number(e.target.value))
                       }
-                      className="mt-0.5 w-full rounded border border-zinc-200 px-1.5 py-1 text-right text-sm"
+                      className="mt-0.5 w-full rounded border border-zinc-200 px-1.5 py-1 text-right text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                     />
                   </label>
                 ))}
