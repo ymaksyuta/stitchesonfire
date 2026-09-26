@@ -19,15 +19,6 @@ const LABELS: Record<StitchType, string> = {
   slipStitch: 'stitch.slipStitch',
 }
 
-// Muted, business-appropriate accents — not a full rainbow.
-const COLORS: { value: string | undefined; labelKey: string }[] = [
-  { value: undefined, labelKey: 'color.default' },
-  { value: '#b45309', labelKey: 'color.amber' },
-  { value: '#b91c1c', labelKey: 'color.rust' },
-  { value: '#166534', labelKey: 'color.sage' },
-  { value: '#1d4ed8', labelKey: 'color.slateBlue' },
-]
-
 const LONG_PRESS_MS = 450
 const MOVE_CANCEL_PX = 10
 
@@ -38,7 +29,6 @@ export function StitchPalette() {
     activeStitch,
     setActiveStitch,
     activeColor,
-    setActiveColor,
     beginPaletteDrag,
     updatePaletteDrag,
     endPaletteDrag,
@@ -49,11 +39,9 @@ export function StitchPalette() {
     setGlyphVariant,
   } = usePatternStore()
 
-  const [colorOpen, setColorOpen] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [tooltipType, setTooltipType] = useState<StitchType | null>(null)
   const [variantPickerFor, setVariantPickerFor] = useState<StitchType | null>(null)
-  const currentColor = COLORS.find((c) => c.value === activeColor) ?? COLORS[0]
 
   const downRef = useRef<{ x: number; y: number; type: StitchType } | null>(null)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -105,11 +93,6 @@ export function StitchPalette() {
       return
     }
     endPaletteDrag()
-  }
-
-  const onColorClick = (value: string | undefined) => {
-    setActiveColor(value)
-    setColorOpen(false)
   }
 
   const visibleStitches = ALL_STITCH_TYPES.filter((t) => visibleStitchTypes.includes(t))
@@ -281,71 +264,15 @@ export function StitchPalette() {
           )}
         </div>
       </div>
+      <StitchProperties />
+
       <div className="mt-2 flex items-center gap-2">
-        <div className="relative">
-          <button
-            type="button"
-            data-help-id="palette.colorPicker"
-            onClick={() => setColorOpen((o) => !o)}
-            aria-label={t(currentColor.labelKey)}
-            aria-expanded={colorOpen}
-            className="flex h-9 items-center gap-2 rounded-md border border-zinc-300 px-2"
-          >
-            <span
-              className="h-5 w-5 shrink-0 rounded-full border border-zinc-200"
-              style={{ backgroundColor: currentColor.value ?? '#18181b' }}
-            />
-            <svg viewBox="0 0 20 20" className="h-3 w-3 fill-zinc-500">
-              <path d="M5 7l5 6 5-6z" />
-            </svg>
-          </button>
-
-          {colorOpen && (
-            <>
-              <button
-                aria-hidden="true"
-                tabIndex={-1}
-                onClick={() => setColorOpen(false)}
-                className="fixed inset-0 z-30 cursor-default touch-none"
-              />
-              <div
-                role="listbox"
-                aria-label={t('color.default')}
-                className="absolute bottom-full left-0 z-40 mb-1 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg"
-              >
-                {COLORS.map(({ value, labelKey }) => (
-                  <button
-                    key={value ?? 'default'}
-                    type="button"
-                    role="option"
-                    aria-selected={activeColor === value}
-                    onClick={() => onColorClick(value)}
-                    className={`flex w-full items-center gap-2 px-3 py-2 text-sm whitespace-nowrap ${
-                      activeColor === value
-                        ? 'bg-zinc-100 text-zinc-900'
-                        : 'text-zinc-700 hover:bg-zinc-50'
-                    }`}
-                  >
-                    <span
-                      className="h-4 w-4 shrink-0 rounded-full border border-zinc-200"
-                      style={{ backgroundColor: value ?? '#18181b' }}
-                    />
-                    {t(labelKey)}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-
         <GuideToggle />
         <SequenceToggle />
         <SideContrastToggle />
         <ZoomControl />
         <ResetViewButton />
       </div>
-
-      <StitchProperties />
 
       {dragPreview && (
         <div

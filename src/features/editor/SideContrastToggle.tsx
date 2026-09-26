@@ -33,8 +33,8 @@ export function SideContrastToggle() {
         }`}
       >
         <svg viewBox="0 0 20 20" className="h-4 w-4">
-          <circle cx="10" cy="10" r="7" fill="currentColor" fillOpacity="0.9" />
-          <path d="M10 3a7 7 0 000 14z" fill="currentColor" fillOpacity="0.35" />
+          <circle cx="10" cy="10" r="7" fill="#fff" stroke="#18181b" strokeWidth="1.3" />
+          <path d="M10 3a7 7 0 000 14z" fill="#18181b" />
         </svg>
       </button>
 

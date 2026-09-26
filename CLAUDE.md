@@ -329,6 +329,25 @@ test intentionally fails as a reminder.
     "Interface help" above for the required workflow when the UI
     changes.
 
+18. Toolbar icon/layout pass ✅: the properties toolbar
+    (`StitchProperties.tsx`) is now always rendered instead of vanishing
+    with no selection (side/marker dim to indicate they're inert without
+    one; thread/layer stay fully usable either way). It now also hosts
+    the override-color swatch, moved out of `StitchPalette.tsx`, so the
+    toolbar reads as four groups top to bottom: Actions (`ToolPalette`),
+    Stitch type (icon row + "more"), Properties (color, side, marker,
+    thread, layer), View (grid/guide, sequence, wrong-side contrast,
+    zoom, fit-to-pattern). Icons that used to look alike got distinct
+    shapes: side toggle is a folded-corner square (the fold flips which
+    face reads as "filled" for right vs. wrong side); marker is a solid
+    drop/pin in orange, not a circle; the thread button is a wavy strand
+    stroked in the thread's own color instead of a filled circle, so it
+    no longer reads as a second color swatch; wrong-side contrast
+    (`SideContrastToggle.tsx`) is now a literal half-black/half-white
+    circle instead of one hue at two opacities. Thread/layer buttons no
+    longer show a text name next to the icon (name is still in
+    title/aria-label).
+
 ## Known issues
 - "More stitch types" popup: toggling a row *on* closes the popup;
   toggling one *off* does not — should be symmetric either way.
