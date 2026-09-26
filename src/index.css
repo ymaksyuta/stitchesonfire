@@ -11,3 +11,17 @@ body {
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior: none;
 }
+
+/* Help "?" inspect mode — see src/features/help */
+.help-inspect-mode {
+  cursor: help;
+}
+.help-inspect-mode [data-help-id]:hover {
+  outline: 2px dashed #18181b;
+  outline-offset: 2px;
+}
+.help-highlight {
+  outline: 3px solid #f59e0b;
+  outline-offset: 2px;
+  transition: outline-color 0.2s ease;
+}

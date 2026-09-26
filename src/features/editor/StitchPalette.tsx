@@ -124,6 +124,7 @@ export function StitchPalette() {
           {visibleStitches.map((type) => (
             <div key={type} className="relative shrink-0">
               <button
+                data-help-id="palette.stitchButton"
                 onPointerDown={(e) => onStitchPointerDown(e, type)}
                 onPointerMove={onStitchPointerMove}
                 onPointerUp={onStitchPointerUp}
@@ -154,6 +155,7 @@ export function StitchPalette() {
         <div className="relative shrink-0">
           <button
             type="button"
+            data-help-id="palette.moreStitchTypes"
             onClick={() => {
               setPickerOpen((o) => !o)
               setVariantPickerFor(null)
@@ -283,6 +285,7 @@ export function StitchPalette() {
         <div className="relative">
           <button
             type="button"
+            data-help-id="palette.colorPicker"
             onClick={() => setColorOpen((o) => !o)}
             aria-label={t(currentColor.labelKey)}
             aria-expanded={colorOpen}

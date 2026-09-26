@@ -21,6 +21,7 @@ export function SideContrastToggle() {
     <div className="relative">
       <button
         type="button"
+        data-help-id="palette.sideContrastToggle"
         {...longPress}
         aria-label={t('editor.sideContrast')}
         aria-pressed={showSideContrast}

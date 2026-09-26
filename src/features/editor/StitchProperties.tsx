@@ -57,6 +57,7 @@ export function StitchProperties() {
     <div className="mt-2 flex items-center gap-2 border-t border-zinc-100 pt-2">
       <button
         type="button"
+        data-help-id="properties.side"
         onClick={toggleSelectedSide}
         aria-label={t('editor.side')}
         title={t('editor.side')}
@@ -67,6 +68,7 @@ export function StitchProperties() {
 
       <button
         type="button"
+        data-help-id="properties.marker"
         onClick={toggleSelectedMarker}
         aria-label={t('editor.marker')}
         aria-pressed={!!current.marker}
@@ -91,6 +93,7 @@ export function StitchProperties() {
       <div className="relative shrink-0">
         <button
           type="button"
+          data-help-id="properties.thread"
           {...threadLongPress}
           aria-label={t('editor.thread')}
           title={t('editor.thread')}
@@ -196,6 +199,7 @@ export function StitchProperties() {
       <div className="relative shrink-0">
         <button
           type="button"
+          data-help-id="properties.layer"
           {...layerLongPress}
           aria-label={t('editor.layer')}
           title={t('editor.layer')}

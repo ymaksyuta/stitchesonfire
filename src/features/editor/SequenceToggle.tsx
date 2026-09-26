@@ -18,6 +18,7 @@ export function SequenceToggle() {
     <div className="relative">
       <button
         type="button"
+        data-help-id="palette.sequenceToggle"
         {...longPress}
         aria-label={t('editor.showSequence')}
         aria-pressed={showSequence}

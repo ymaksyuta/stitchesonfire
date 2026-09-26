@@ -198,6 +198,37 @@ Editing rules (`src/store/patternStore.ts`), by design, not by accident:
   SVG without benchmarking on a real mobile device first.
 - Keep `npm run build` (tsc -b && vite build) passing before committing.
 
+## Interface help (`src/features/help/`)
+The app has an in-app help system aimed at crocheters, not developers —
+help text uses plain, crochet-user language (the app's own terminology,
+no "component"/"element"/dev jargon), matching the tone of the rest of
+the UI. `helpRegistry.ts` is the single source of truth (same pattern as
+`GLYPH_VARIANTS`): a list of interface elements and a list of "typical
+action" howto guides, each pointing at i18n keys — no help text lives
+inside components.
+
+**When adding or changing an interactive UI element:**
+1. Give it (or its wrapping container, if the element itself can't take
+   attributes) a `data-help-id="<area>.<name>"`.
+2. Add a matching entry to `HELP_ELEMENTS` in `helpRegistry.ts`.
+3. Add its `help.element.*` text to **every** locale file — plain
+   language, what it does and how to use it, not what it's called.
+4. If it's part of one of the typical actions in `HELP_HOWTOS`, update
+   that howto's steps too.
+5. If `data-help-id` has to be built dynamically (can't be a literal
+   string in JSX — see `ToolPalette.tsx` for the pattern), add a comment
+   listing the literal values next to where it's built, so the static
+   scan below still finds them.
+
+`helpRegistry.test.ts` enforces this automatically: it scans `src/`
+for `data-help-id` usages and fails if the registry and the interface
+disagree in either direction (an element with no help, or help for an
+element that no longer exists), if a howto step points at an unknown
+element, or if a `help.*` key is missing from either locale. It also
+pins the current list of typical actions — add/remove from that list
+in the test itself when a typical action is added or retired, or the
+test intentionally fails as a reminder.
+
 ## Roadmap (see repo README/issues for current status)
 1. Scaffold ✅
 2. Core editor MVP (grid, stitch placement, touch) ✅
@@ -286,6 +317,17 @@ Editing rules (`src/store/patternStore.ts`), by design, not by accident:
     Groups and the anchor editor (loop/post-side/offset UI) are still not
     built; radial-grid rendering itself (as opposed to just storing the
     grid kind) is still not built either.
+17. In-app help system ✅: "?" button next to the language switcher
+    toggles inspect mode (`useHelpStore`/`HelpInspectMode.tsx`) — cursor
+    changes, tapping any `data-help-id` element shows a short popup
+    instead of activating it, and a search field replaces the pattern
+    name in the header. Full searchable help (`HelpPanel.tsx`, opened
+    from the app menu) lists every interface element plus step-by-step
+    "how to" guides for typical actions, both tappable to highlight the
+    relevant control on screen. Content is single-sourced from
+    `helpRegistry.ts` and kept honest by `helpRegistry.test.ts` — see
+    "Interface help" above for the required workflow when the UI
+    changes.
 
 ## Known issues
 - "More stitch types" popup: toggling a row *on* closes the popup;

@@ -11,6 +11,7 @@ export function ResetViewButton() {
   return (
     <button
       type="button"
+      data-help-id="palette.resetView"
       onClick={fitView}
       aria-label={t('editor.resetView')}
       title={t('editor.resetView')}

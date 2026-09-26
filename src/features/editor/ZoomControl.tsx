@@ -6,7 +6,7 @@ export function ZoomControl() {
   const { zoom, setZoom } = usePatternStore()
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1" data-help-id="palette.zoom">
       <button
         type="button"
         onClick={() => setZoom(zoom - 0.25)}

@@ -17,6 +17,7 @@ export function GuideToggle() {
     <div className="relative">
       <button
         type="button"
+        data-help-id="palette.guideToggle"
         {...longPress}
         aria-label={t('editor.showGuides')}
         aria-pressed={showGuides}

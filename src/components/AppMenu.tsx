@@ -3,10 +3,12 @@ import { useTranslation } from 'react-i18next'
 import { usePatternStore } from '../store/patternStore'
 import { savePattern, listPatterns, deletePattern } from '../db/patterns'
 import type { Pattern } from '../types/pattern'
+import { useHelpStore } from '../features/help/helpStore'
 
 export function AppMenu() {
   const { t } = useTranslation()
   const { pattern, loadPattern, reset } = usePatternStore()
+  const openHelpPanel = useHelpStore((s) => s.openPanel)
   const [patterns, setPatterns] = useState<Pattern[]>([])
   const [open, setOpen] = useState(false)
   const [justSaved, setJustSaved] = useState(false)
@@ -103,24 +105,36 @@ export function AppMenu() {
           />
           <div className="absolute left-0 top-full z-40 mt-1 w-64 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg">
             <button
+              data-help-id="menu.save"
               onClick={handleSave}
               className="block w-full px-3 py-2 text-left text-sm text-zinc-800 hover:bg-zinc-50"
             >
               {justSaved ? t('editor.saved') : t('editor.save')}
             </button>
             <button
+              data-help-id="menu.newPattern"
               onClick={handleNew}
               className="block w-full border-t border-zinc-100 px-3 py-2 text-left text-sm text-zinc-800 hover:bg-zinc-50"
             >
               + {t('editor.newPattern')}
             </button>
             <button
+              data-help-id="menu.export"
               onClick={handleExport}
               className="block w-full border-t border-zinc-100 px-3 py-2 text-left text-sm text-zinc-800 hover:bg-zinc-50"
             >
               {t('editor.export')}
             </button>
-            <div className="max-h-56 overflow-y-auto border-t border-zinc-100">
+            <button
+              onClick={() => {
+                openHelpPanel()
+                setOpen(false)
+              }}
+              className="block w-full border-t border-zinc-100 px-3 py-2 text-left text-sm text-zinc-800 hover:bg-zinc-50"
+            >
+              {t('editor.help')}
+            </button>
+            <div data-help-id="menu.myPatterns" className="max-h-56 overflow-y-auto border-t border-zinc-100">
               <p className="px-3 py-1.5 text-xs text-zinc-400">
                 {t('editor.myPatterns')}
               </p>
